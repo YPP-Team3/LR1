@@ -25,7 +25,7 @@ namespace TelegramBot
                 }
                 catch (IOException e) when (i <= NumberOfRetries)
                 {
-                    Thread.Sleep(DelayOnRetry);
+                    Task.Delay(DelayOnRetry);
                 }
             }
         }
@@ -43,7 +43,7 @@ namespace TelegramBot
                 }
                 catch (IOException e) when (i <= NumberOfRetries)
                 {
-                    Thread.Sleep(DelayOnRetry);
+                    Task.Delay(DelayOnRetry);
                 }
             }
             return userFilters;   
