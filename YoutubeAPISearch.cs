@@ -26,14 +26,23 @@ namespace YoutubeAPISearch
     /// </summary>
     internal class Search
     {
-        private static string apiKey = File.ReadAllText("apiKey.txt");//"AIzaSyDgeGRlSZ2Gub4tDxo3cE3tEn3KiYhDRCY";//"AIzaSyDEJSX2wpoSvjxHNvKuVa5u9o1QV4u4QVo";
+        private static string apiKey = File.ReadAllText("apiKey.txt");
         private static string jsonqwery = "https://youtube.googleapis.com/youtube/v3/videos?part=statistics&id=";//Ys7-6_t7OEQ&key=+apiKey;
-        static List<string> chanelId = new List<string>();
+        private static YouTubeService youtubeService = new YouTubeService(new BaseClientService.Initializer()
+        {
+            ApiKey = apiKey,
+            ApplicationName = "MyName"
+        });
+        private static SearchResource.ListRequest searchListRequest = youtubeService.Search.List("snippet");
+        public static List<string> channelId;
         public static List<string> videos;
         public static List<string> channels;
-        static List<string> rez = new List<string>();
-        static int viewCount = 10, likeCount = 10;
+        public static List<string> rez;
+        static DateTime date = DateTime.Now.Subtract(new DateTime(1, 1, 4, 0, 0, 0) - DateTime.MinValue);// дата 3 дня назад
+        static int viewCount = 1000, likeCount = 10;
         [STAThread]
+
+
         static void Main(string[] args)
         {
             Console.WriteLine("YouTube Data API: Search");
@@ -43,24 +52,23 @@ namespace YoutubeAPISearch
             {
                 //int l, v = GetViewAndLikeCount(jsonqwery, "PSsjsqeYX_Y", out l);
                 //Console.WriteLine(v + " " + l);
-
-                Search s = new Search();
                 string qwery = Console.ReadLine();
-                s.Run(qwery).Wait();
-                Console.WriteLine("Каналы:");
-                foreach (string c in channels)
-                {
-                    Console.WriteLine(c);
-                }
-                Console.WriteLine();
+                SearchVideo(qwery).Wait();
                 Console.WriteLine("Видео:");
                 foreach (string v in videos)
                 {
                     Console.WriteLine(v);
                 }
-                s.GetVideosFromChannelAsync(chanelId[0]).Wait();
                 Console.WriteLine();
-                Console.WriteLine("Видео с канала " + qwery + ":");
+                SearchChannel(qwery).Wait();
+                Console.WriteLine("Каналы:");
+                for (int i = 0; i < channels.Count; i++)
+                {
+                    Console.WriteLine(i + " " + channels[i]);
+                }
+                GetVideosFromChannelAsync(channelId[0]).Wait();
+                Console.WriteLine();
+                Console.WriteLine("Видео с канала " + channels[0].Split('(')[0] + ":");//видео с нулевого по номеру канала
                 for (int i = 0; i < rez.Count; i++)
                 {
                     Console.WriteLine(rez[i]);
@@ -88,19 +96,70 @@ namespace YoutubeAPISearch
             Console.WriteLine("Press any key to continue...");
             Console.ReadKey();
         }
-        public static int GetViewAndLikeCount(string qwery, string videoId, out int likeCount)
+
+        public static async Task SearchVideo(string qwery)// поиск видео по запросу (результат в листе videos)
         {
-            string sURL;
-            sURL = qwery + videoId + "&key=" + apiKey;
-
-            WebRequest wrGETURL;
-            wrGETURL = WebRequest.Create(sURL);
-
-            Stream objStream;
-            objStream = wrGETURL.GetResponse().GetResponseStream();
-
+            searchListRequest.Q = qwery;
+            searchListRequest.MaxResults = 500;
+            searchListRequest.Order = SearchResource.ListRequest.OrderEnum.Date;
+            var searchListResponse = await searchListRequest.ExecuteAsync();
+            videos = new List<string>();
+            foreach (var searchResult in searchListResponse.Items)
+            {
+                if (searchResult.Id.Kind == "youtube#video")
+                {
+                    if (searchResult.Snippet.PublishedAt >= date)
+                    {
+                        int l, v = GetViewAndLikeCount(jsonqwery, searchResult.Id.VideoId, out l);
+                        if (viewCount <= v && likeCount <= l)
+                            videos.Add(String.Format("{0} ({1}), views = {2}, likes = {3} ", searchResult.Snippet.Title, "https://www.youtube.com/watch?v=" + searchResult.Id.VideoId, v, l));
+                    }
+                }
+            }
+        }
+        public static async Task SearchChannel(string qwery)// поиск каналов по запросу (результат в листе channels, список id каналов для функции GetVideosFromChannelAsync находится в листе channelId)
+        {
+            searchListRequest.Q = qwery;
+            searchListRequest.MaxResults = 50;
+            searchListRequest.Order = null;
+            var searchListResponse = await searchListRequest.ExecuteAsync();
+            channelId = new List<string>();
+            channels = new List<string>();
+            foreach (var searchResult in searchListResponse.Items)
+            {
+                if (searchResult.Id.Kind == "youtube#channel")
+                {
+                    channels.Add(String.Format("{0} ({1})", searchResult.Snippet.Title, "https://www.youtube.com/channel/" + searchResult.Id.ChannelId));
+                    channelId.Add(searchResult.Id.ChannelId);
+                }
+            }
+        }
+        public static async Task GetVideosFromChannelAsync(string ytChannelId) //получение последних видео с канала по его id (результат в листе rez)
+        {
+            searchListRequest.ChannelId = ytChannelId;
+            searchListRequest.MaxResults = 100;
+            searchListRequest.Order = SearchResource.ListRequest.OrderEnum.Date;
+            var searchListResponse = await searchListRequest.ExecuteAsync();
+            rez = new List<string>();
+            foreach (var searchResult in searchListResponse.Items)
+            {
+                if (searchResult.Id.Kind == "youtube#video")
+                {
+                    if (searchResult.Snippet.PublishedAt >= date)
+                    {
+                        int l, v = GetViewAndLikeCount(jsonqwery, searchResult.Id.VideoId, out l);
+                        if (viewCount <= v && likeCount <= l)
+                            rez.Add(String.Format("{0} - {1}, views = {2}, likes = {3}", searchResult.Snippet.Title, "https://www.youtube.com/watch?v=" + searchResult.Id.VideoId, v, l));
+                    }
+                }
+            }
+        }
+        public static int GetViewAndLikeCount(string qwery, string videoId, out int likeCount) //запрос на получение количества лайков и просмотров у видео
+        {
+            string sURL = qwery + videoId + "&key=" + apiKey;
+            WebRequest wrGETURL = WebRequest.Create(sURL);
+            Stream objStream = wrGETURL.GetResponse().GetResponseStream();
             StreamReader objReader = new StreamReader(objStream);
-
             string sLine = "";
             int i = 0;
             string view = "", like = "";
@@ -130,85 +189,6 @@ namespace YoutubeAPISearch
             viewCount = int.Parse(view);
             likeCount = int.Parse(like);
             return viewCount;
-        }
-        async Task GetVideosFromChannelAsync(string ytChannelId)
-        {
-            var youtubeService = new YouTubeService(new BaseClientService.Initializer()
-            {
-                ApiKey = apiKey,
-                ApplicationName = this.GetType().ToString()
-            });
-
-            var searchListRequest = youtubeService.Search.List("snippet");
-            searchListRequest.ChannelId = ytChannelId;
-            searchListRequest.MaxResults = 15;
-            searchListRequest.Order = SearchResource.ListRequest.OrderEnum.Date;
-            var searchListResponse = await searchListRequest.ExecuteAsync();
-            DateTime date = DateTime.Now.Subtract(new DateTime(1, 1, 4, 0, 0, 0) - DateTime.MinValue); // дата 3 дня назад
-            foreach (var searchResult in searchListResponse.Items)
-            {
-                switch (searchResult.Id.Kind)
-                {
-                    case "youtube#video":
-
-                        if (searchResult.Snippet.PublishedAt > date)
-                        {
-                            int l, v = GetViewAndLikeCount(jsonqwery, searchResult.Id.VideoId, out l);
-                            if (viewCount <= v && likeCount <= l)
-                                rez.Add(String.Format("{0} - {1}, views = {2}, likes = {3}", searchResult.Snippet.Title, "https://www.youtube.com/watch?v=" + searchResult.Id.VideoId, v, l));
-                        }
-                        break;
-                    default:
-                        break;
-                }
-            }
-        }
-        public async Task Run(string qwery)// поиск каналов и видео по запросу
-        {
-            var youtubeService = new YouTubeService(new BaseClientService.Initializer()
-            {
-                ApiKey = apiKey,
-                ApplicationName = this.GetType().ToString()
-            });
-
-            var searchListRequest = youtubeService.Search.List("snippet");
-            searchListRequest.Q = qwery; // Replace with your search term.
-            searchListRequest.MaxResults = 50;
-
-            // Call the search.list method to retrieve results matching the specified query term.
-            var searchListResponse = await searchListRequest.ExecuteAsync();
-
-            chanelId = new List<string>();
-            videos = new List<string>();
-            channels = new List<string>();
-            List<string> playlists = new List<string>();
-            DateTime date = DateTime.Now.Subtract(new DateTime(1, 1, 4, 0, 0, 0) - DateTime.MinValue);// дата 3 дня назад
-            // Add each result to the appropriate list, and then display the lists of
-            // matching videos, channels, and playlists.
-            foreach (var searchResult in searchListResponse.Items)
-            {
-                switch (searchResult.Id.Kind)
-                {
-                    case "youtube#video":
-                        if (searchResult.Snippet.PublishedAt > date)
-                        {
-                            int l, v = GetViewAndLikeCount(jsonqwery, searchResult.Id.VideoId, out l);
-                            if (viewCount <= v && likeCount <= l)
-                                videos.Add(String.Format("{0} ({1}), views = {2}, likes = {3} ", searchResult.Snippet.Title, "https://www.youtube.com/watch?v=" + searchResult.Id.VideoId, v, l));
-
-
-                        }
-                        break;
-
-                    case "youtube#channel":
-                        channels.Add(String.Format("{0} ({1})", searchResult.Snippet.Title, "https://www.youtube.com/channel/" + searchResult.Id.ChannelId));
-                        chanelId.Add(searchResult.Id.ChannelId);
-                        break;
-                }
-            }
-
-            //Console.WriteLine(String.Format("Channels:\n{0}\n", string.Join("\n", channels)));
-            //Console.WriteLine(String.Format("Videos:\n{0}\n", string.Join("\n", videos)));
         }
     }
 }
