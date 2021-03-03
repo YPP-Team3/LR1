@@ -122,13 +122,11 @@ namespace YoutubeAPISearch
                 nextpagetoken = " ";
             }
 
-            int countFoundVideos = 0;
-            for (countFoundVideos = 0; countFoundVideos <= pageSize/*ytVideoPage*/; countFoundVideos++)
+            if (ytVideoPage < prevVideoPage)
+                nextpagetoken = prevPageToken;
+            int iterator = 0;
+            for (int i = 0; i <= 0/*ytVideoPage*/; i++)
             {
-                countFoundVideos--;
-                if (ytVideoPage < prevVideoPage)
-                    nextpagetoken = prevPageToken;
-
                 videos = new List<string>();
                 searchListRequest.Q = qwery;
                 searchListRequest.MaxResults = 5;
@@ -141,11 +139,10 @@ namespace YoutubeAPISearch
                     if (searchResult.Snippet.PublishedAt >= date)
                     {
                         long l, v = GetViewAndLikeCount(jsonqwery, searchResult.Id.VideoId, out l);
-                        if (numOfViews <= v && numOfLikes <= l && countFoundVideos < pageSize)
+                        if (numOfViews <= v && numOfLikes <= l)
                         {
                             videos.Add(String.Format("({1}), views = {2}, likes = {3} ", searchResult.Snippet.Title,
                                 "https://www.youtube.com/watch?v=" + searchResult.Id.VideoId, v, l));
-                            countFoundVideos++;
                         }
                     }
                 }
