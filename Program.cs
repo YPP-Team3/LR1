@@ -17,6 +17,7 @@ using Telegram.Bot.Types.InlineQueryResults;
 using Telegram.Bot.Types.InputFiles;
 using Telegram.Bot.Types.ReplyMarkups;
 using File = System.IO.File;
+using YoutubeAPISearch;
 
 namespace TelegramBot
 {
@@ -35,12 +36,19 @@ namespace TelegramBot
         private const string BotStagesJsonPath = "./BotStages.json";
         private const string UserFiltersJsonPath = "./UserFilters.json";
 
+        private static int YTVideoPage = 0;
+        private static int YTChannelPage = 0;
+        private static int YTChannelVideoPage = 0;
+        private static string YTSearchQuery = "";
+        private static bool CanChangeQuery;
+
         public static BotStage CurrentBotStage;
         public enum BotStage
         {
             ChoosingPlatform, ChoosingYTFunction, ChoosingYTFilters,
             SettingYTLikes, SettingYTViews,
-            SearchingYTChannel, SearchingYTVideo
+            SearchingYTChannel, SearchingYTVideo,
+            ChoosingYTVideos, ChoosingYTChannels, ChoosingYTChannelVideos
         }
 
         private static async Task ChangeBotStage(long chatId, BotStage nextBotStage)
@@ -59,6 +67,7 @@ namespace TelegramBot
         {
             await JsonReadWrite.WriteJsonAsync(UserFiltersJsonPath, UserFilters);
         }
+
         public static void Main()
         {
             MainTask().GetAwaiter().GetResult();
@@ -81,8 +90,6 @@ namespace TelegramBot
             Bot = new TelegramBotClient(token);
             User me = Bot.GetMeAsync().Result;
             Console.Title = me.Username;
-
-            //Bot.OnMessage += BotOnMessageReceived2;
             
             Bot.OnMessage += BotOnMessageReceived;
             Bot.OnReceiveError += BotOnReceiveError;
@@ -92,11 +99,6 @@ namespace TelegramBot
 
             Console.ReadLine();
             Bot.StopReceiving();
-        }
-
-        private static void BotOnMessageReceived2(object sender, MessageEventArgs e)
-        {
-            Console.WriteLine(Bot.GetChatAsync(e.Message.Chat.Id).Result.Id);
         }
 
         private static async void BotOnMessageReceived(object sender, MessageEventArgs messageEventArgs)
@@ -116,7 +118,7 @@ namespace TelegramBot
                     return;
                 }
 
-                switch (CurrentBotStage)
+                switch (BotStages[message.Chat.Id])
                 {
                     case BotStage.ChoosingPlatform:
                         {
@@ -165,14 +167,16 @@ namespace TelegramBot
                                 case "Лайки":
                                     await Bot.SendTextMessageAsync(
                                         chatId: chatId,
-                                        text: "Введите число лайков"
+                                        text: "Введите число лайков",
+                                        replyMarkup: new ReplyKeyboardRemove()
                                     );
                                     await ChangeBotStage(chatId, BotStage.SettingYTLikes);
                                     break;
                                 case "Просмотры":
                                     await Bot.SendTextMessageAsync(
                                         chatId: chatId,
-                                        text: "Введите число просмотров"
+                                        text: "Введите число просмотров",
+                                        replyMarkup: new ReplyKeyboardRemove()
                                     );
                                     await ChangeBotStage(chatId, BotStage.SettingYTViews);
                                     break;
@@ -248,12 +252,54 @@ namespace TelegramBot
                             break;
                         }
                     case BotStage.SearchingYTVideo:
-                        {
-                            //делать дело, а потом
-                            await ChoosePlatformAction(message);
-                            await ChangeBotStage(chatId, BotStage.ChoosingPlatform);
+                    {
+                            var RequestReplyKeyboard = new ReplyKeyboardMarkup(new[]
+                            {
+                                new KeyboardButton[]{ "В начало" },
+                                new KeyboardButton[]{"Предыдущие 5","Следующие 5"},
+                                new KeyboardButton[]{ "Поиск YT" }
+                            });
+                            await Bot.SendTextMessageAsync(
+                                chatId: message.Chat.Id,
+                                text: "Видео по вашему запросу:",
+                                replyMarkup: RequestReplyKeyboard
+                            );
+
+                        YTSearchQuery = (CanChangeQuery) ? message.Text : YTSearchQuery;
+                        CanChangeQuery = false;
+                            await SearchYTVideo(message, YTSearchQuery, YTVideoPage);
+                            await ChangeBotStage(chatId, BotStage.ChoosingYTVideos);
                             break;
                         }
+                    case BotStage.ChoosingYTVideos:
+                    {
+                        switch (message.Text)
+                        {
+                            case "Предыдущие 5":
+                            {
+                                YTVideoPage = (YTVideoPage > 0) ? YTVideoPage - 1 : 0;
+                                await SearchYTVideo(message, YTSearchQuery, YTVideoPage);
+                                await ChangeBotStage(chatId, BotStage.ChoosingYTVideos);
+                                break;
+                            }
+                            case "Следующие 5":
+                            {
+                                ++YTVideoPage;
+                                await SearchYTVideo(message, YTSearchQuery, YTVideoPage);
+                                await ChangeBotStage(chatId, BotStage.ChoosingYTVideos);
+                                break;
+                            }
+                            case "Поиск YT":
+                            {
+                                await SendSearchYTVideoOptions(message);
+                                await ChangeBotStage(chatId, BotStage.SearchingYTVideo);
+                                break;
+                            }
+
+                        }
+                            await ChangeBotStage(chatId, BotStage.SearchingYTVideo);
+                        break;
+                    }
                     case BotStage.SearchingYTChannel:
                         {
                             //делать дело, а потом
@@ -262,6 +308,9 @@ namespace TelegramBot
                             break;
                         }
                     default:
+                        await ChoosePlatformAction(message);
+                        await ChangeBotStage(chatId, BotStage.ChoosingPlatform);
+
                         break;
                 }
                 switch (message.Text)
@@ -306,6 +355,7 @@ namespace TelegramBot
                 }
                 async Task SendSearchYTVideoOptions(Message msg)
                 {
+                    CanChangeQuery = true;
                     await Bot.SendTextMessageAsync(
                         chatId: msg.Chat.Id,
                         text: "Введите поисковый запрос",
@@ -339,6 +389,7 @@ namespace TelegramBot
 
                 async Task ChoosePlatformAction(Message msg)
                 {
+                    CanChangeQuery = true;
                     var RequestReplyKeyboard = new ReplyKeyboardMarkup(new[]
                     {
                     new KeyboardButton[]{"YouTube","Instagram"},
@@ -363,6 +414,25 @@ namespace TelegramBot
             }
 
             
+        }
+
+        private static async Task SearchYTVideo(Message message, string query, int ytVideoPage)
+        {
+            await YoutubeAPISearch.Search.SearchVideo(query, ytVideoPage,
+                UserFilters[message.Chat.Id.ToString()].LikesYT,
+                UserFilters[message.Chat.Id.ToString()].ViewsYT);
+            foreach (string video in YoutubeAPISearch.Search.videos)
+            {
+                await Bot.SendTextMessageAsync(
+                    chatId: message.Chat.Id,
+                    text: video /*Regex.Match(video, @"[\w\W]+\(([\w\W]+)\)").Value*/
+                );
+            }
+            if (YoutubeAPISearch.Search.videos.Count==0)
+                await Bot.SendTextMessageAsync(
+                    chatId: message.Chat.Id,
+                    text: "Видео не найдено"
+                );
         }
 
 
