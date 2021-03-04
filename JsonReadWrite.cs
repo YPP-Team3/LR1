@@ -60,14 +60,14 @@ namespace TelegramBot
                 }
                 catch (IOException e) when (i <= NumberOfRetries)
                 {
-                    Thread.Sleep(DelayOnRetry);
+                    await Task.Delay(DelayOnRetry);
                 }
             }
-            return userFilters;   
+            return userFilters;
         }
         public static async Task<Dictionary<long, Program.BotStage>> ReadBotStagesJsonAsync(string fileName)
         {
-            Dictionary<long,Program.BotStage> BotStages = new Dictionary<long, Program.BotStage>();
+            Dictionary<long, Program.BotStage> BotStages = new Dictionary<long, Program.BotStage>();
             for (int i = 1; i <= NumberOfRetries; ++i)
             {
                 try
@@ -76,13 +76,16 @@ namespace TelegramBot
                         if (!JsonSerializer.DeserializeAsync<Dictionary<long, Program.BotStage>>(fileStream)
                             .IsCompletedSuccessfully)
                             break;
-                    else{ BotStages = await JsonSerializer.
-                        DeserializeAsync<Dictionary<long, Program.BotStage>>(fileStream);}
+                        else
+                        {
+                            BotStages = await JsonSerializer.
+                          DeserializeAsync<Dictionary<long, Program.BotStage>>(fileStream);
+                        }
                     break;
                 }
                 catch (IOException e) when (i <= NumberOfRetries)
                 {
-                    Thread.Sleep(DelayOnRetry);
+                    await Task.Delay(DelayOnRetry);
                 }
             }
             return BotStages;

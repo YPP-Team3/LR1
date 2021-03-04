@@ -25,11 +25,11 @@ namespace TelegramBot
     class Program
     {
         private static Telegram.Bot.TelegramBotClient Bot;
-        
+
         /// <summary>
         /// Хранит текущие состояния бота
         /// </summary>
-        private static Dictionary<long,BotStage> BotStages;
+        private static Dictionary<long, BotStage> BotStages;
 
         private static Dictionary<string, UserFilter> UserFilters;
 
@@ -59,7 +59,7 @@ namespace TelegramBot
             }
             else
             {
-                BotStages.Add(chatId,nextBotStage);
+                BotStages.Add(chatId, nextBotStage);
             }
             await JsonReadWrite.WriteJsonAsync(BotStagesJsonPath, BotStages);
         }
@@ -76,7 +76,7 @@ namespace TelegramBot
         {
             CurrentBotStage = BotStage.ChoosingPlatform;
             if (!File.Exists(BotStagesJsonPath)) File.Create(BotStagesJsonPath);
-            if((await JsonReadWrite.ReadBotStagesJsonAsync(BotStagesJsonPath)).Count != 0)
+            if ((await JsonReadWrite.ReadBotStagesJsonAsync(BotStagesJsonPath)).Count != 0)
                 BotStages = await JsonReadWrite.ReadBotStagesJsonAsync(BotStagesJsonPath);
             else BotStages = new Dictionary<long, BotStage>();
 
@@ -90,7 +90,8 @@ namespace TelegramBot
             Bot = new TelegramBotClient(token);
             User me = Bot.GetMeAsync().Result;
             Console.Title = me.Username;
-            
+
+
             Bot.OnMessage += BotOnMessageReceived;
             Bot.OnReceiveError += BotOnReceiveError;
 
@@ -206,7 +207,7 @@ namespace TelegramBot
                                 await UpdateUserFilters();
                                 await Bot.SendTextMessageAsync(
                                     chatId: chatId,
-                                    text: (likes >0) ? $"Фильтр лайков записан ({likes})"
+                                    text: (likes > 0) ? $"Фильтр лайков записан ({likes})"
                                         : "Фильтр лайков отключен");
                                 await SendYTFilterOptions(message);
                                 await ChangeBotStage(chatId, BotStage.ChoosingYTFilters);
@@ -218,20 +219,20 @@ namespace TelegramBot
                             break;
                         }
                     case BotStage.SettingYTViews:
-                    {
-                        if (message.Text == "В начало")
                         {
-                            await ChoosePlatformAction(message);
-                            await ChangeBotStage(chatId, BotStage.ChoosingPlatform);
-                        }
+                            if (message.Text == "В начало")
+                            {
+                                await ChoosePlatformAction(message);
+                                await ChangeBotStage(chatId, BotStage.ChoosingPlatform);
+                            }
                             long likes = 0;
                             long views = Int32.Parse(Regex.Match(message.Text, @"[-\d]+").Value);
-                        if (UserFilters.Count > 0)
-                        {
-                            if (UserFilters.ContainsKey(chatId.ToString()))
-                                likes = UserFilters[chatId.ToString()].LikesYT;
-                        }
-                        if (views >= 0)
+                            if (UserFilters.Count > 0)
+                            {
+                                if (UserFilters.ContainsKey(chatId.ToString()))
+                                    likes = UserFilters[chatId.ToString()].LikesYT;
+                            }
+                            if (views >= 0)
                             {
                                 if (UserFilters.ContainsKey(chatId.ToString()))
                                     UserFilters[chatId.ToString()].ViewsYT = views;
@@ -252,7 +253,7 @@ namespace TelegramBot
                             break;
                         }
                     case BotStage.SearchingYTVideo:
-                    {
+                        {
                             var RequestReplyKeyboard = new ReplyKeyboardMarkup(new[]
                             {
                                 new KeyboardButton[]{ "В начало" },
@@ -265,41 +266,41 @@ namespace TelegramBot
                                 replyMarkup: RequestReplyKeyboard
                             );
 
-                        YTSearchQuery = (CanChangeQuery) ? message.Text : YTSearchQuery;
-                        CanChangeQuery = false;
+                            YTSearchQuery = (CanChangeQuery) ? message.Text : YTSearchQuery;
+                            CanChangeQuery = false;
                             await SearchYTVideo(message, YTSearchQuery, YTVideoPage);
                             await ChangeBotStage(chatId, BotStage.ChoosingYTVideos);
                             break;
                         }
                     case BotStage.ChoosingYTVideos:
-                    {
-                        switch (message.Text)
                         {
-                            case "Предыдущие 5":
+                            switch (message.Text)
                             {
-                                YTVideoPage = (YTVideoPage > 0) ? YTVideoPage - 1 : 0;
-                                await SearchYTVideo(message, YTSearchQuery, YTVideoPage);
-                                await ChangeBotStage(chatId, BotStage.ChoosingYTVideos);
-                                break;
-                            }
-                            case "Следующие 5":
-                            {
-                                ++YTVideoPage;
-                                await SearchYTVideo(message, YTSearchQuery, YTVideoPage);
-                                await ChangeBotStage(chatId, BotStage.ChoosingYTVideos);
-                                break;
-                            }
-                            case "Поиск YT":
-                            {
-                                await SendSearchYTVideoOptions(message);
-                                await ChangeBotStage(chatId, BotStage.SearchingYTVideo);
-                                break;
-                            }
+                                case "Предыдущие 5":
+                                    {
+                                        YTVideoPage = (YTVideoPage > 0) ? YTVideoPage - 1 : 0;
+                                        await SearchYTVideo(message, YTSearchQuery, YTVideoPage);
+                                        await ChangeBotStage(chatId, BotStage.ChoosingYTVideos);
+                                        break;
+                                    }
+                                case "Следующие 5":
+                                    {
+                                        ++YTVideoPage;
+                                        await SearchYTVideo(message, YTSearchQuery, YTVideoPage);
+                                        await ChangeBotStage(chatId, BotStage.ChoosingYTVideos);
+                                        break;
+                                    }
+                                case "Поиск YT":
+                                    {
+                                        await SendSearchYTVideoOptions(message);
+                                        await ChangeBotStage(chatId, BotStage.SearchingYTVideo);
+                                        break;
+                                    }
 
-                        }
+                            }
                             await ChangeBotStage(chatId, BotStage.SearchingYTVideo);
-                        break;
-                    }
+                            break;
+                        }
                     case BotStage.SearchingYTChannel:
                         {
                             //делать дело, а потом
@@ -320,7 +321,11 @@ namespace TelegramBot
                         await ChangeBotStage(chatId, BotStage.ChoosingPlatform);
                         CurrentBotStage = BotStages[chatId];
                         break;
-
+                    case "/start":
+                        await ChoosePlatformAction(message);
+                        await ChangeBotStage(chatId, BotStage.ChoosingPlatform);
+                        CurrentBotStage = BotStages[chatId];
+                        break;
                     default:
                         break;
                 }
@@ -349,7 +354,8 @@ namespace TelegramBot
                 });
                     await Bot.SendTextMessageAsync(
                         chatId: msg.Chat.Id,
-                        text: "Выберите Фильтр",
+                        text: $"Выберите Фильтр, текущий фильтр: {UserFilters[chatId.ToString()].LikesYT} likes " +
+                              $"& {UserFilters[chatId.ToString()].ViewsYT} views",
                         replyMarkup: RequestReplyKeyboard
                     );
                 }
@@ -413,7 +419,7 @@ namespace TelegramBot
                 }
             }
 
-            
+
         }
 
         private static async Task SearchYTVideo(Message message, string query, int ytVideoPage)
@@ -428,7 +434,7 @@ namespace TelegramBot
                     text: video /*Regex.Match(video, @"[\w\W]+\(([\w\W]+)\)").Value*/
                 );
             }
-            if (YoutubeAPISearch.Search.videos.Count==0)
+            if (YoutubeAPISearch.Search.videos.Count == 0)
                 await Bot.SendTextMessageAsync(
                     chatId: message.Chat.Id,
                     text: "Видео не найдено"

@@ -26,7 +26,7 @@ namespace YoutubeAPISearch
     /// </summary>
     internal class Search
     {
-        private static string apiKey = File.ReadAllText("apiKey.txt");
+        private static string apiKey = /*"AIzaSyDEJSX2wpoSvjxHNvKuVa5u9o1QV4u4QVo";*/File.ReadAllText("apiKey.txt");
         private static string jsonqwery = "https://youtube.googleapis.com/youtube/v3/videos?part=statistics&id=";
         private static YouTubeService youtubeService = new YouTubeService(new BaseClientService.Initializer()
         {
@@ -149,7 +149,7 @@ namespace YoutubeAPISearch
                 prevPageToken = nextpagetoken;
                 nextpagetoken = searchListResponse.NextPageToken;
             }
-            
+
             prevVideoPage = ytVideoPage;
         }
         public static async Task SearchChannel(string qwery, int n)// поиск каналов по запросу (результат в листе channels, список id каналов для функции GetVideosFromChannelAsync находится в листе channelId)
