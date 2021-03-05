@@ -8,25 +8,31 @@ namespace TelegramBot
 {
     class UserFilter
     {
-        public string UserId { get; set; }
-        public uint Views { get; set; }
-        public uint Likes { get; set; }
-        public enum FilterType
-        {
-            Youtube, Instagram
-        }
-        public FilterType Filter { get; set; }
-        public UserFilter(string userId, uint views, uint likes, FilterType filter)
+        public long UserId { get; set; }
+        public long ViewsYT { get; set; }
+        public long LikesYT { get; set; }
+        public long LikesInsta { get; set; }
+
+        public UserFilter(long userId, long viewsYt, long likesYt)
         {
             UserId = userId;
-            Views = views;
-            Likes = likes;
-            Filter = filter;
+            ViewsYT = viewsYt;
+            LikesYT = likesYt;
+            LikesInsta = 0;
         }
+        public UserFilter(long userId, long likesInsta)
+        {
+            UserId = userId;
 
+            LikesInsta = likesInsta;
+            ViewsYT = LikesYT = 0;
+        }
+        public UserFilter()
+        {
+        }
         public override string ToString()
         {
-            return $"[{UserId}]'s {Filter} filter contains ({Views}) views and ({Likes}) likes";
+            return $"[{UserId}]'s filter contains ({ViewsYT}) views and ({LikesYT}) likes";
         }
     }
 }
