@@ -208,7 +208,6 @@
     <None Include=".vs\LR1\v15\.suo" />
     <None Include=".vs\slnx.sqlite" />
     <None Include=".vs\VSWorkspaceState.json" />
-    <None Include="App.config" />
     <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
@@ -235,9 +234,6 @@
     </PackageReference>
     <PackageReference Include="Google.Apis.YouTube.v3">
       <Version>1.50.0.2238</Version>
-    </PackageReference>
-    <PackageReference Include="Newtonsoft.Json">
-      <Version>12.0.3</Version>
     </PackageReference>
     <PackageReference Include="System.Text.Json">
       <Version>5.0.1</Version>

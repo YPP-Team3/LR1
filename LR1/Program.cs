@@ -81,7 +81,7 @@ namespace TelegramBot
             else BotStages = new Dictionary<long, BotStage>();
 
             if (!File.Exists(UserFiltersJsonPath)) File.Create(UserFiltersJsonPath);
-            if ((await JsonReadWrite.ReadUserFiltersJsonAsync(UserFiltersJsonPath)).Count != 0)
+            if (File.ReadAllText(UserFiltersJsonPath).Length!=0)
                 UserFilters = await JsonReadWrite.ReadUserFiltersJsonAsync(UserFiltersJsonPath);
             else UserFilters = new Dictionary<string, UserFilter>();
 
@@ -108,6 +108,10 @@ namespace TelegramBot
             long chatId = message.Chat.Id;
             if (true /*chatId == 430265734*/)
             {
+                if (!UserFilters.ContainsKey(chatId.ToString()))
+                {
+                    UserFilters.Add(chatId.ToString(),new UserFilter(chatId));
+                }
                 if (!BotStages.ContainsKey(chatId))
                 {
                     await ChangeBotStage(chatId, BotStage.ChoosingPlatform);
