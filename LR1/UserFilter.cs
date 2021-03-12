@@ -27,8 +27,15 @@ namespace TelegramBot
             LikesInsta = likesInsta;
             ViewsYT = LikesYT = 0;
         }
+
         public UserFilter()
         {
+
+        }
+        public UserFilter(long userId)
+        {
+            UserId = userId;
+            ViewsYT = LikesYT = LikesInsta = 0;
         }
         public override string ToString()
         {
