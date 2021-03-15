@@ -206,6 +206,12 @@ namespace TelegramBot
 
                 case BotStage.ChoosingYTFilters:
                     {
+                        if (message.Text == CurrentTextPack.BtnChoosingPlatform_YT)
+                        {
+                            await SendYoutubeOptions(message);
+                            await ChangeBotStage(chatId, BotStage.ChoosingYTFunction);
+                            CurrentBotStage = BotStages[chatId];
+                        } else
                         if (message.Text == CurrentTextPack.BtnSettingYTViews)
                         {
                             await Bot.SendTextMessageAsync(
@@ -230,34 +236,48 @@ namespace TelegramBot
                     {   //могут быть косяки в создании новых фильтров
                         if (message.Text == CurrentTextPack.BtnBackToStart)
                         {
-                            await ChoosePlatformAction(message);
-                            await ChangeBotStage(chatId, BotStage.ChoosingPlatform);
+                            await SendYoutubeOptions(message);
+                            await ChangeBotStage(chatId, BotStage.ChoosingYTFunction);
                         }
                         long views = 0;
-                        long likes = Int32.Parse(Regex.Match(message.Text, @"[-\d]+").Value);
-                        if (UserFilters.Count > 0)
+                        try
                         {
-                            if (UserFilters.ContainsKey(chatId.ToString()))
-                                views = UserFilters[chatId.ToString()].ViewsYT;
-                            else UserFilters.Add(chatId.ToString(), new UserFilter(chatId, views, likes));
+                            long likes = Int32.Parse(Regex.Match(message.Text, @"[-\d]+").Value);
+                            if (UserFilters.Count > 0)
+                            {
+                                if (UserFilters.ContainsKey(chatId.ToString()))
+                                    views = UserFilters[chatId.ToString()].ViewsYT;
+                                else UserFilters.Add(chatId.ToString(), new UserFilter(chatId, views, likes));
+                            }
+                            if (likes >= 0)
+                            {
+                                if (UserFilters.ContainsKey(chatId.ToString()))
+                                    UserFilters[chatId.ToString()].LikesYT = likes;
+                                else UserFilters.Add(chatId.ToString(), new UserFilter(chatId, views, likes));
+                                await UpdateUserFilters();
+                                await Bot.SendTextMessageAsync(
+                                    chatId: chatId,
+                                    text: (likes > 0) ? CurrentTextPack.PromptSettingYTLikes_Done + $" ({likes})"
+                                        : CurrentTextPack.PromptSettingYTLikes_Disabled);
+                                await SendYTFilterOptions(message);
+                                await ChangeBotStage(chatId, BotStage.ChoosingYTFilters);
+                            }
+                            else
+                            {
+                                await Bot.SendTextMessageAsync(
+                                    chatId: chatId,
+                                    text: CurrentTextPack.PromptSettingYTFilter_Error
+                                );
+                                await SendYTFilterOptions(message);
+                                await ChangeBotStage(chatId, BotStage.ChoosingYTFilters);
+                            }
                         }
-                        if (likes >= 0)
+                        catch (Exception e)
                         {
-                            if (UserFilters.ContainsKey(chatId.ToString()))
-                                UserFilters[chatId.ToString()].LikesYT = likes;
-                            else UserFilters.Add(chatId.ToString(), new UserFilter(chatId, views, likes));
-                            await UpdateUserFilters();
-                            await Bot.SendTextMessageAsync(
-                                chatId: chatId,
-                                text: (likes > 0) ? CurrentTextPack.PromptSettingYTLikes_Done+$" ({likes})"
-                                    : CurrentTextPack.PromptSettingYTLikes_Disabled);
-                            await SendYTFilterOptions(message);
-                            await ChangeBotStage(chatId, BotStage.ChoosingYTFilters);
+                            Console.WriteLine(e);
+                            throw;
                         }
-                        else await Bot.SendTextMessageAsync(
-                            chatId: chatId,
-                            text: CurrentTextPack.PromptSettingYTFilter_Error
-                        );
+                        
                         break;
                     }
                 case BotStage.SettingYTViews:
@@ -267,31 +287,46 @@ namespace TelegramBot
                             await ChoosePlatformAction(message);
                             await ChangeBotStage(chatId, BotStage.ChoosingPlatform);
                         }
-                        long likes = 0;
-                        long views = Int32.Parse(Regex.Match(message.Text, @"[-\d]+").Value);
-                        if (UserFilters.Count > 0)
+
+                        try
                         {
-                            if (UserFilters.ContainsKey(chatId.ToString()))
-                                likes = UserFilters[chatId.ToString()].LikesYT;
+                            long likes = 0;
+                            long views = Int32.Parse(Regex.Match(message.Text, @"[-\d]+").Value);
+                            if (UserFilters.Count > 0)
+                            {
+                                if (UserFilters.ContainsKey(chatId.ToString()))
+                                    likes = UserFilters[chatId.ToString()].LikesYT;
+                            }
+                            if (views >= 0)
+                            {
+                                if (UserFilters.ContainsKey(chatId.ToString()))
+                                    UserFilters[chatId.ToString()].ViewsYT = views;
+                                else UserFilters.Add(chatId.ToString(), new UserFilter(chatId, views, likes));
+                                await UpdateUserFilters();
+                                await Bot.SendTextMessageAsync(
+                                    chatId: chatId,
+                                    text: (views > 0)
+                                        ? CurrentTextPack.PromptSettingYTViews_Done + $" ({views})"
+                                        : CurrentTextPack.PromptSettingYTViews_Disabled);
+                                await SendYTFilterOptions(message);
+                                await ChangeBotStage(chatId, BotStage.ChoosingYTFilters);
+                            }
+                            else
+                            {
+                                await Bot.SendTextMessageAsync(
+                                    chatId: chatId,
+                                    text: CurrentTextPack.PromptSettingYTFilter_Error
+                                );
+                                await SendYTFilterOptions(message);
+                                await ChangeBotStage(chatId, BotStage.ChoosingYTFilters);
+                            }
                         }
-                        if (views >= 0)
+                        catch (Exception e)
                         {
-                            if (UserFilters.ContainsKey(chatId.ToString()))
-                                UserFilters[chatId.ToString()].ViewsYT = views;
-                            else UserFilters.Add(chatId.ToString(), new UserFilter(chatId, views, likes));
-                            await UpdateUserFilters();
-                            await Bot.SendTextMessageAsync(
-                                chatId: chatId,
-                                text: (views > 0)
-                                    ? CurrentTextPack.PromptSettingYTViews_Done+$" ({views})"
-                                    : CurrentTextPack.PromptSettingYTViews_Disabled);
-                            await SendYTFilterOptions(message);
-                            await ChangeBotStage(chatId, BotStage.ChoosingYTFilters);
+                            Console.WriteLine(e);
+                            throw;
                         }
-                        else await Bot.SendTextMessageAsync(
-                            chatId: chatId,
-                            text: CurrentTextPack.PromptSettingYTFilter_Error
-                        );
+                        
                         break;
                     }
                 case BotStage.SearchingYTVideo:
@@ -300,10 +335,7 @@ namespace TelegramBot
                         {
                                 new KeyboardButton[]{ CurrentTextPack.BtnBackToStart },
                                 new KeyboardButton[]
-                                {
-                                    CurrentTextPack.BtnSearchingYTVideo_Previous5,
-                                    CurrentTextPack.BtnSearchingYTVideo_Next5
-                                },
+                                {CurrentTextPack.BtnSearchingYTVideo_Next5},
                                 new KeyboardButton[]{ CurrentTextPack.BtnChoosingYTFunction_Search }
                             });
                         await Bot.SendTextMessageAsync(
@@ -320,13 +352,13 @@ namespace TelegramBot
                     }
                 case BotStage.ChoosingYTVideos:
                     {
-                        if (message.Text == CurrentTextPack.BtnSearchingYTVideo_Previous5)
-                        {
-                            YTVideoPage = (YTVideoPage > 0) ? YTVideoPage - 1 : 0;
-                            await SearchYTVideo(message, YTSearchQuery, YTVideoPage);
-                            await ChangeBotStage(chatId, BotStage.ChoosingYTVideos);
-                        }
-                        else
+                        //if (message.Text == CurrentTextPack.BtnSearchingYTVideo_Previous5)
+                        //{
+                        //    YTVideoPage = (YTVideoPage > 0) ? YTVideoPage - 1 : 0;
+                        //    await SearchYTVideo(message, YTSearchQuery, YTVideoPage);
+                        //    await ChangeBotStage(chatId, BotStage.ChoosingYTVideos);
+                        //}
+                        //else
                         if (message.Text == CurrentTextPack.BtnSearchingYTVideo_Next5)
                         {
                             ++YTVideoPage;
@@ -432,7 +464,7 @@ namespace TelegramBot
             {
                 var RequestReplyKeyboard = new ReplyKeyboardMarkup(new[]
                 {
-                    new KeyboardButton[]{ CurrentTextPack.BtnBackToStart},
+                    new KeyboardButton[]{ CurrentTextPack.BtnChoosingPlatform_YT},
                     new KeyboardButton[]{ CurrentTextPack.BtnSettingYTViews,
                         CurrentTextPack.BtnSettingYTLikes}
                 });
@@ -520,7 +552,7 @@ namespace TelegramBot
             if (YoutubeAPISearch.Search.videos.Count == 0)
                 await Bot.SendTextMessageAsync(
                     chatId: message.Chat.Id,
-                    text: "Видео не найдено"
+                    text: CurrentTextPack.PromptSearchingYTVideo_Failure
                 );
         }
 

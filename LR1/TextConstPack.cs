@@ -44,6 +44,7 @@ namespace TextConstPack
         public string BtnSearchingYTVideo_Previous5 { get; set; }
         public string BtnSearchingYTVideo_Next5 { get; set; }
         public string PromptSearchingYTVideo_Done { get; set; }
+        public string PromptSearchingYTVideo_Failure { get; set; }
 
         public string PromptSearchingYTChannel { get; set; }
         public string PromptInvalidCommandResponse { get; set; }
@@ -93,6 +94,7 @@ namespace TextConstPack
                  BtnSearchingYTVideo_Previous5 = "Previous 5",
                  BtnSearchingYTVideo_Next5 = "Next 5",
                  PromptSearchingYTVideo_Done = "Your search results:",
+                PromptSearchingYTVideo_Failure= "Found no videos",
                  PromptSearchingYTChannel = "Enter a channel name",
                 PromptInvalidCommandResponse = "Invalid command, use menu buttons",
                 PromptHelp = " /start - Start over from language select\n" +
@@ -150,6 +152,7 @@ namespace TextConstPack
                  BtnSearchingYTVideo_Previous5 = "Предыдущие 5",
                  BtnSearchingYTVideo_Next5 = "Следующие 5",
                  PromptSearchingYTVideo_Done = "Видео по вашему запросу:",
+                PromptSearchingYTVideo_Failure = "Видео не найдено",
 
                  PromptSearchingYTChannel = "Введите название канала",
                     PromptInvalidCommandResponse = "Такой команды нет, используйте кнопки меню",
