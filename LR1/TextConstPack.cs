@@ -10,6 +10,7 @@ namespace TextConstPack
         public TextPack() { }
         public string CommandStart = "/start";
         public string CommandHelp = "/help";
+        public string CommandInfo = "/info";
         public string PromptChoosingLanguage = "Please choose a language";
         public string PromptGreetings { get; set; }
         public string BtnBackToStart { get; set; }
@@ -47,6 +48,7 @@ namespace TextConstPack
         public string PromptSearchingYTChannel { get; set; }
         public string PromptInvalidCommandResponse { get; set; }
         public string PromptHelp { get; set; }
+        public string PromptInfo { get; set; }
     }
 
     public static class TextPackData
@@ -57,7 +59,7 @@ namespace TextConstPack
             {
                 Name = "English",
                 PromptGreetings = "Hi, I can show you YouTube videos and Instagram posts " +
-                "with desired number of views and likes.",
+                "with desired number of views and likes.\nFor more info type /info command",
                 BtnBackToStart = "Back to Start",
                 PromptChoosingPlatform = "First, choose a platform you are interested in",
                 BtnChoosingPlatform_YT = "YouTube",
@@ -94,19 +96,30 @@ namespace TextConstPack
                  PromptSearchingYTChannel = "Enter a channel name",
                 PromptInvalidCommandResponse = "Invalid command, use menu buttons",
                 PromptHelp = " /start - Start over from language select\n" +
-                             " /help - Request a help message"
+                             " /help - Request a help message"+
+                             " /info - Show info",
+                    PromptInfo = "Here's what I can do:\n"+
+                    "- Searching YouTube and Instagram content. To start just press the button on a keyboard.\n"+
+                    "- Filtering recent videos and posts (3 days old) by views and likes." +
+                    " For that, after choosing the platform press the \"Filter\" button on a keyboard.\n" +
+                    "- Searching specific YouTube Channel videos. For that, after choosing the platform press the "+
+                    "\"YT Channel Search\" button on a keyboard.\n" +
+                    "- Searching YouTube videos by text query. For that, after choosing the platform press the "+
+                                 "\"YT Search\" button on a keyboard.\n"+
+                    "To go back to Choosing Platform press the \"Back to Start\" button на клавиатуре"
     },
             new TextPack()
             {
                 Name = "Русский",
                 PromptGreetings = "Привет, я могу выводить видео с YouTube и посты из Instagram, " +
-                "отфильтрованные по количеству просмотров и лайков.",
+                "отфильтрованные по количеству просмотров и лайков.\n" +
+                                  "Для подробностей введите команду /info",
                 BtnBackToStart = "В начало",
                 BtnChoosingPlatform_YT = "YouTube",
                 BtnChoosingPlatform_Insta = "Instagram",
                 BtnChoosingYTFunction_Filters = "Фильтры YT",
                 BtnChoosingYTFunction_Search = "Поиск YT",
-                BtnChoosingYTFunction_ChannelSearch = "Поиск каналов YT",
+                BtnChoosingYTFunction_ChannelSearch = "Поиск по каналу YT",
                 PromptChoosingPlatform = "Сначала, выберите интересующую вас платформу",
                 PromptCurrentFiltersTemplate = "\tТекущие фильтры: [{0} просмотров & {1} лайков]",
                 PromptChoosingYTFunction = $"\tДля поиска YouTube видео нажмите кнопку " +
@@ -141,7 +154,16 @@ namespace TextConstPack
                  PromptSearchingYTChannel = "Введите название канала",
                     PromptInvalidCommandResponse = "Такой команды нет, используйте кнопки меню",
                     PromptHelp = " /start - Начать с выбора языка\n" +
-                         " /help - Запросить подсказку о командах"
+                         " /help - Запросить подсказку о командах",
+                PromptInfo = "Вот что я умею:\n"+
+                    "- Искать контент в YouTube и Instagram. Для поиска просто нажми нужную кнопку на клавиатуре.\n"+
+                    "- Выдавать контент за последние 3 дня, у которого будет достаточное количество просмотров и лайков.\n" +
+                             " Для этого, после выбора ресурса, нажми на кнопку \"Фильтр\" на клавиатуре.\n" +
+                    "- Выполнять поиск видео на YouTube по названию канала. Для этого выбери ресурс и нажми кнопку "+
+                    "\"Поиск по каналу YT\" на клавиатуре.\n" +
+                    "- Выполнять поиск видео на YouTube по запросу. Для этого выбери ресурс и нажми кнопку " +
+                             "\"Поиск YT\" на клавиатуре.\n"+
+                    "Для возврата к выбору платформы нажми кнопку \"В начало\" на клавиатуре"
             }
 };
         

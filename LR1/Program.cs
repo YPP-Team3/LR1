@@ -380,6 +380,13 @@ namespace TelegramBot
                     text: CurrentTextPack.PromptHelp
                 );
             }
+            else if (message.Text == CurrentTextPack.CommandInfo)
+            {   //-/info
+                await Bot.SendTextMessageAsync(
+                    chatId: chatId,
+                    text: CurrentTextPack.PromptInfo
+                );
+            }
 
             else
             {
