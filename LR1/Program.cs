@@ -18,6 +18,8 @@ using Telegram.Bot.Types.InputFiles;
 using Telegram.Bot.Types.ReplyMarkups;
 using File = System.IO.File;
 using YoutubeAPISearch;
+using TextConstPack;
+using LanguagesEnum;
 
 namespace TelegramBot
 {
@@ -32,6 +34,9 @@ namespace TelegramBot
         private static Dictionary<long, BotStage> BotStages;
 
         private static Dictionary<string, UserFilter> UserFilters;
+        private static TextPack[] UsedTextPacks = TextPackData.AvailablePacks;
+
+        private static TextPack CurrentTextPack;
 
         private const string BotStagesJsonPath = "./BotStages.json";
         private const string UserFiltersJsonPath = "./UserFilters.json";
@@ -45,6 +50,7 @@ namespace TelegramBot
         public static BotStage CurrentBotStage;
         public enum BotStage
         {
+            ChoosingLanguage,
             ChoosingPlatform, ChoosingYTFunction, ChoosingYTFilters,
             SettingYTLikes, SettingYTViews,
             SearchingYTChannel, SearchingYTVideo,
@@ -81,10 +87,12 @@ namespace TelegramBot
             else BotStages = new Dictionary<long, BotStage>();
 
             if (!File.Exists(UserFiltersJsonPath)) File.Create(UserFiltersJsonPath);
-            if (File.ReadAllText(UserFiltersJsonPath).Length!=0)
+            if (File.ReadAllText(UserFiltersJsonPath).Length != 0)
                 UserFilters = await JsonReadWrite.ReadUserFiltersJsonAsync(UserFiltersJsonPath);
             else UserFilters = new Dictionary<string, UserFilter>();
 
+
+            CurrentTextPack = UsedTextPacks.First(x => x.Name == "English");
 
             string token = System.IO.File.ReadAllText($"./token.txt");
             Bot = new TelegramBotClient(token);
@@ -106,324 +114,388 @@ namespace TelegramBot
         {
             Message message = messageEventArgs.Message;
             long chatId = message.Chat.Id;
-            if (true /*chatId == 430265734*/)
+            if (!UserFilters.ContainsKey(chatId.ToString()))
             {
-                if (!UserFilters.ContainsKey(chatId.ToString()))
-                {
-                    UserFilters.Add(chatId.ToString(),new UserFilter(chatId));
-                }
-                if (!BotStages.ContainsKey(chatId))
-                {
-                    await ChangeBotStage(chatId, BotStage.ChoosingPlatform);
-                }
-                CurrentBotStage = BotStages[chatId];
+                UserFilters.Add(chatId.ToString(), new UserFilter(chatId));
+            }
+            if (!BotStages.ContainsKey(chatId))
+            {
+                await ChangeBotStage(chatId, BotStage.ChoosingPlatform);
+            }
+            CurrentBotStage = BotStages[chatId];
 
-                if (message == null || message.Type != MessageType.Text)
-                {
-                    return;
-                }
-
-                switch (BotStages[message.Chat.Id])
-                {
-                    case BotStage.ChoosingPlatform:
-                        {
-                            switch (message.Text)
-                            {
-                                case "YouTube":
-                                    await SendYoutubeOptions(message);
-                                    await ChangeBotStage(chatId, BotStage.ChoosingYTFunction);
-                                    CurrentBotStage = BotStages[chatId];
-                                    break;
-
-                                case "Instagram":
-                                    await SendInstagramOptions(message);
-                                    break;
-                            }
-                            break;
-                        }
-                    case BotStage.ChoosingYTFunction:
-                        {
-                            switch (message.Text)
-                            {
-                                case "Фильтры YT":
-                                    await SendYTFilterOptions(message);
-                                    await ChangeBotStage(chatId, BotStage.ChoosingYTFilters);
-                                    CurrentBotStage = BotStages[chatId];
-                                    break;
-
-                                case "Поиск YT":
-                                    await SendSearchYTVideoOptions(message);
-                                    await ChangeBotStage(chatId, BotStage.SearchingYTVideo);
-                                    CurrentBotStage = BotStages[chatId];
-                                    break;
-                                case "Поиск Каналов YT":
-                                    await SendSearchYTChannelOptions(message);
-                                    await ChangeBotStage(chatId, BotStage.SearchingYTChannel);
-                                    CurrentBotStage = BotStages[chatId];
-                                    break;
-                            }
-                            break;
-                        }
-
-                    case BotStage.ChoosingYTFilters:
-                        {
-                            switch (message.Text)
-                            {
-                                case "Лайки":
-                                    await Bot.SendTextMessageAsync(
-                                        chatId: chatId,
-                                        text: "Введите число лайков",
-                                        replyMarkup: new ReplyKeyboardRemove()
-                                    );
-                                    await ChangeBotStage(chatId, BotStage.SettingYTLikes);
-                                    break;
-                                case "Просмотры":
-                                    await Bot.SendTextMessageAsync(
-                                        chatId: chatId,
-                                        text: "Введите число просмотров",
-                                        replyMarkup: new ReplyKeyboardRemove()
-                                    );
-                                    await ChangeBotStage(chatId, BotStage.SettingYTViews);
-                                    break;
-                            }
-                            break;
-                        }
-                    case BotStage.SettingYTLikes:
-                        {   //могут быть косяки в создании новых фильтров
-                            if (message.Text == "В начало")
-                            {
-                                await ChoosePlatformAction(message);
-                                await ChangeBotStage(chatId, BotStage.ChoosingPlatform);
-                            }
-                            long views = 0;
-                            long likes = Int32.Parse(Regex.Match(message.Text, @"[-\d]+").Value);
-                            if (UserFilters.Count > 0)
-                            {
-                                if (UserFilters.ContainsKey(chatId.ToString()))
-                                    views = UserFilters[chatId.ToString()].ViewsYT;
-                                else UserFilters.Add(chatId.ToString(), new UserFilter(chatId, views, likes));
-                            }
-                            if (likes > 0)
-                            {
-                                if (UserFilters.ContainsKey(chatId.ToString()))
-                                    UserFilters[chatId.ToString()].LikesYT = likes;
-                                else UserFilters.Add(chatId.ToString(), new UserFilter(chatId, views, likes));
-                                await UpdateUserFilters();
-                                await Bot.SendTextMessageAsync(
-                                    chatId: chatId,
-                                    text: (likes > 0) ? $"Фильтр лайков записан ({likes})"
-                                        : "Фильтр лайков отключен");
-                                await SendYTFilterOptions(message);
-                                await ChangeBotStage(chatId, BotStage.ChoosingYTFilters);
-                            }
-                            else await Bot.SendTextMessageAsync(
-                                chatId: chatId,
-                                text: "Введите положительное число, или 0 для сброса фильтра"
-                            );
-                            break;
-                        }
-                    case BotStage.SettingYTViews:
-                        {
-                            if (message.Text == "В начало")
-                            {
-                                await ChoosePlatformAction(message);
-                                await ChangeBotStage(chatId, BotStage.ChoosingPlatform);
-                            }
-                            long likes = 0;
-                            long views = Int32.Parse(Regex.Match(message.Text, @"[-\d]+").Value);
-                            if (UserFilters.Count > 0)
-                            {
-                                if (UserFilters.ContainsKey(chatId.ToString()))
-                                    likes = UserFilters[chatId.ToString()].LikesYT;
-                            }
-                            if (views >= 0)
-                            {
-                                if (UserFilters.ContainsKey(chatId.ToString()))
-                                    UserFilters[chatId.ToString()].ViewsYT = views;
-                                else UserFilters.Add(chatId.ToString(), new UserFilter(chatId, views, likes));
-                                await UpdateUserFilters();
-                                await Bot.SendTextMessageAsync(
-                                    chatId: chatId,
-                                    text: (views > 0)
-                                        ? $"Фильтр просмотров записан ({views})"
-                                        : "Фильтр просмотров отключен");
-                                await SendYTFilterOptions(message);
-                                await ChangeBotStage(chatId, BotStage.ChoosingYTFilters);
-                            }
-                            else await Bot.SendTextMessageAsync(
-                                chatId: chatId,
-                                text: "Введите положительное число, или 0 для сброса фильтра"
-                            );
-                            break;
-                        }
-                    case BotStage.SearchingYTVideo:
-                        {
-                            var RequestReplyKeyboard = new ReplyKeyboardMarkup(new[]
-                            {
-                                new KeyboardButton[]{ "В начало" },
-                                new KeyboardButton[]{"Предыдущие 5","Следующие 5"},
-                                new KeyboardButton[]{ "Поиск YT" }
-                            });
-                            await Bot.SendTextMessageAsync(
-                                chatId: message.Chat.Id,
-                                text: "Видео по вашему запросу:",
-                                replyMarkup: RequestReplyKeyboard
-                            );
-
-                            YTSearchQuery = (CanChangeQuery) ? message.Text : YTSearchQuery;
-                            CanChangeQuery = false;
-                            await SearchYTVideo(message, YTSearchQuery, YTVideoPage);
-                            await ChangeBotStage(chatId, BotStage.ChoosingYTVideos);
-                            break;
-                        }
-                    case BotStage.ChoosingYTVideos:
-                        {
-                            switch (message.Text)
-                            {
-                                case "Предыдущие 5":
-                                    {
-                                        YTVideoPage = (YTVideoPage > 0) ? YTVideoPage - 1 : 0;
-                                        await SearchYTVideo(message, YTSearchQuery, YTVideoPage);
-                                        await ChangeBotStage(chatId, BotStage.ChoosingYTVideos);
-                                        break;
-                                    }
-                                case "Следующие 5":
-                                    {
-                                        ++YTVideoPage;
-                                        await SearchYTVideo(message, YTSearchQuery, YTVideoPage);
-                                        await ChangeBotStage(chatId, BotStage.ChoosingYTVideos);
-                                        break;
-                                    }
-                                case "Поиск YT":
-                                    {
-                                        await SendSearchYTVideoOptions(message);
-                                        await ChangeBotStage(chatId, BotStage.SearchingYTVideo);
-                                        break;
-                                    }
-
-                            }
-                            await ChangeBotStage(chatId, BotStage.SearchingYTVideo);
-                            break;
-                        }
-                    case BotStage.SearchingYTChannel:
-                        {
-                            //делать дело, а потом
-                            await ChoosePlatformAction(message);
-                            await ChangeBotStage(chatId, BotStage.ChoosingPlatform);
-                            break;
-                        }
-                    default:
-                        await ChoosePlatformAction(message);
-                        await ChangeBotStage(chatId, BotStage.ChoosingPlatform);
-
-                        break;
-                }
-                switch (message.Text)
-                {
-                    case "В начало":
-                        await ChoosePlatformAction(message);
-                        await ChangeBotStage(chatId, BotStage.ChoosingPlatform);
-                        CurrentBotStage = BotStages[chatId];
-                        break;
-                    case "/start":
-                        await ChoosePlatformAction(message);
-                        await ChangeBotStage(chatId, BotStage.ChoosingPlatform);
-                        CurrentBotStage = BotStages[chatId];
-                        break;
-                    default:
-                        break;
-                }
-
-                async Task SendYoutubeOptions(Message msg)
-                {
-                    var RequestReplyKeyboard = new ReplyKeyboardMarkup(new[]
-                    {
-                    new KeyboardButton[]{ "В начало" },
-                    new KeyboardButton[]{"Фильтры YT","Поиск YT"},
-                    new KeyboardButton[]{ "Поиск каналов YT" }
-                });
-                    await Bot.SendTextMessageAsync(
-                        chatId: msg.Chat.Id,
-                        text: "Выберите функцию",
-                        replyMarkup: RequestReplyKeyboard
-                    );
-                }
-
-                async Task SendYTFilterOptions(Message msg)
-                {
-                    var RequestReplyKeyboard = new ReplyKeyboardMarkup(new[]
-                    {
-                    new KeyboardButton[]{ "В начало"},
-                    new KeyboardButton[]{"Лайки","Просмотры"}
-                });
-                    await Bot.SendTextMessageAsync(
-                        chatId: msg.Chat.Id,
-                        text: $"Выберите Фильтр, текущий фильтр: {UserFilters[chatId.ToString()].LikesYT} likes " +
-                              $"& {UserFilters[chatId.ToString()].ViewsYT} views",
-                        replyMarkup: RequestReplyKeyboard
-                    );
-                }
-                async Task SendSearchYTVideoOptions(Message msg)
-                {
-                    CanChangeQuery = true;
-                    await Bot.SendTextMessageAsync(
-                        chatId: msg.Chat.Id,
-                        text: "Введите поисковый запрос",
-                        replyMarkup: new ReplyKeyboardRemove()
-                    );
-                }
-                async Task SendSearchYTChannelOptions(Message msg)
-                {
-                    await Bot.SendTextMessageAsync(
-                        chatId: msg.Chat.Id,
-                        text: "Введите название канала",
-                        replyMarkup: new ReplyKeyboardRemove()
-                    );
-                }
-                async Task SendInstagramOptions(Message msg)
-                {
-                    await Bot.SendChatActionAsync(chatId, ChatAction.UploadPhoto);
-                    try
-                    {
-                        await Bot.SendPhotoAsync(
-                               chatId: chatId,
-                               photo: new InputOnlineFile(new Uri("https://i.ytimg.com/vi/U5YssW0z9rY/hqdefault.jpg")),
-                               caption: "Здесь что-то будет"
-                           );
-                    }
-                    catch (Exception e)
-                    {
-                        Console.WriteLine(e);
-                    }
-                }
-
-                async Task ChoosePlatformAction(Message msg)
-                {
-                    CanChangeQuery = true;
-                    var RequestReplyKeyboard = new ReplyKeyboardMarkup(new[]
-                    {
-                    new KeyboardButton[]{"YouTube","Instagram"},
-                });
-                    await Bot.SendTextMessageAsync(
-                        chatId: msg.Chat.Id,
-                        text: "Выберите платформу",
-                        replyMarkup: RequestReplyKeyboard
-                    );
-                }
-
-                async Task DefaultResponse(Message msg)
-                {
-                    const string usage = "Такой команды нет, используйте кнопки меню";
-                    await Bot.SendTextMessageAsync(
-                        chatId: msg.Chat.Id,
-                        text: usage,
-                        replyMarkup: new ReplyKeyboardRemove()
-                    );
-                    await ChoosePlatformAction(msg);
-                }
+            if (message == null || message.Type != MessageType.Text)
+            {
+                return;
             }
 
 
+            if (UserFilters[chatId.ToString()].UserLanguage == "Undefined")
+            {
+                await ChooseLanguageAction(message);
+                await ChangeBotStage(chatId, BotStage.ChoosingLanguage);
+            }
+            else
+            {
+                CurrentTextPack =
+                    UsedTextPacks.First(x => x.Name == UserFilters[chatId.ToString()].UserLanguage);
+            }
+            switch (BotStages[message.Chat.Id])
+            {
+                case BotStage.ChoosingLanguage:
+                    {
+                        if (UsedTextPacks.Any(x => x.Name == message.Text))
+                        {
+                            UserFilters[chatId.ToString()].UserLanguage = message.Text;
+                            await ChangeBotStage(chatId, BotStage.ChoosingPlatform);
+                            CurrentTextPack = UsedTextPacks.First(x => x.Name == message.Text);
+                            await UpdateUserFilters();
+                            await Bot.SendTextMessageAsync(
+                                chatId: chatId,
+                                text: CurrentTextPack.PromptGreetings
+                            );
+                            await ChoosePlatformAction(message);
+                        }
+                        break;
+                    }
+                case BotStage.ChoosingPlatform:
+                    {
+                        var RequestReplyKeyboard = new ReplyKeyboardMarkup(new[]
+                            {
+                                new KeyboardButton[]
+                                {
+                                    CurrentTextPack.BtnChoosingPlatform_YT,
+                                    CurrentTextPack.BtnChoosingPlatform_Insta
+                                }
+                            });
+                        if (message.Text == CurrentTextPack.BtnChoosingPlatform_YT)
+                        {
+                            await SendYoutubeOptions(message);
+                            await ChangeBotStage(chatId, BotStage.ChoosingYTFunction);
+                            CurrentBotStage = BotStages[chatId];
+                        }
+                        else if (message.Text == CurrentTextPack.BtnChoosingPlatform_Insta)
+                        {
+                            await SendInstagramOptions(message);
+                        }
+                        break;
+                    }
+                case BotStage.ChoosingYTFunction:
+                    {
+                        if (message.Text == CurrentTextPack.BtnChoosingYTFunction_Filters)
+                        {
+                            await SendYTFilterOptions(message);
+                            await ChangeBotStage(chatId, BotStage.ChoosingYTFilters);
+                            CurrentBotStage = BotStages[chatId];
+                        }
+                        else
+                        if (message.Text == CurrentTextPack.BtnChoosingYTFunction_Search)
+                        {
+                            await SendSearchYTVideoOptions(message);
+                            await ChangeBotStage(chatId, BotStage.SearchingYTVideo);
+                            CurrentBotStage = BotStages[chatId];
+                        }
+                        else if (message.Text == CurrentTextPack.BtnChoosingYTFunction_ChannelSearch)
+                        {
+                            await SendSearchYTChannelOptions(message);
+                            await ChangeBotStage(chatId, BotStage.SearchingYTChannel);
+                            CurrentBotStage = BotStages[chatId];
+                        }                        
+                        break;
+                    }
+
+                case BotStage.ChoosingYTFilters:
+                    {
+                        if (message.Text == CurrentTextPack.BtnSettingYTViews)
+                        {
+                            await Bot.SendTextMessageAsync(
+                                chatId: chatId,
+                                text: CurrentTextPack.PromptSettingYTViews,
+                                replyMarkup: new ReplyKeyboardRemove()
+                            );
+                            await ChangeBotStage(chatId, BotStage.SettingYTViews);
+                        } else 
+                        if (message.Text == CurrentTextPack.BtnSettingYTLikes)
+                        {
+                            await Bot.SendTextMessageAsync(
+                                chatId: chatId,
+                                text: CurrentTextPack.PromptSettingYTLikes,
+                                replyMarkup: new ReplyKeyboardRemove()
+                            );
+                            await ChangeBotStage(chatId, BotStage.SettingYTLikes);
+                        }
+                        break;
+                    }
+                case BotStage.SettingYTLikes:
+                    {   //могут быть косяки в создании новых фильтров
+                        if (message.Text == CurrentTextPack.BtnBackToStart)
+                        {
+                            await ChoosePlatformAction(message);
+                            await ChangeBotStage(chatId, BotStage.ChoosingPlatform);
+                        }
+                        long views = 0;
+                        long likes = Int32.Parse(Regex.Match(message.Text, @"[-\d]+").Value);
+                        if (UserFilters.Count > 0)
+                        {
+                            if (UserFilters.ContainsKey(chatId.ToString()))
+                                views = UserFilters[chatId.ToString()].ViewsYT;
+                            else UserFilters.Add(chatId.ToString(), new UserFilter(chatId, views, likes));
+                        }
+                        if (likes >= 0)
+                        {
+                            if (UserFilters.ContainsKey(chatId.ToString()))
+                                UserFilters[chatId.ToString()].LikesYT = likes;
+                            else UserFilters.Add(chatId.ToString(), new UserFilter(chatId, views, likes));
+                            await UpdateUserFilters();
+                            await Bot.SendTextMessageAsync(
+                                chatId: chatId,
+                                text: (likes > 0) ? CurrentTextPack.PromptSettingYTLikes_Done+$" ({likes})"
+                                    : CurrentTextPack.PromptSettingYTLikes_Disabled);
+                            await SendYTFilterOptions(message);
+                            await ChangeBotStage(chatId, BotStage.ChoosingYTFilters);
+                        }
+                        else await Bot.SendTextMessageAsync(
+                            chatId: chatId,
+                            text: CurrentTextPack.PromptSettingYTFilter_Error
+                        );
+                        break;
+                    }
+                case BotStage.SettingYTViews:
+                    {
+                        if (message.Text == CurrentTextPack.BtnBackToStart)
+                        {
+                            await ChoosePlatformAction(message);
+                            await ChangeBotStage(chatId, BotStage.ChoosingPlatform);
+                        }
+                        long likes = 0;
+                        long views = Int32.Parse(Regex.Match(message.Text, @"[-\d]+").Value);
+                        if (UserFilters.Count > 0)
+                        {
+                            if (UserFilters.ContainsKey(chatId.ToString()))
+                                likes = UserFilters[chatId.ToString()].LikesYT;
+                        }
+                        if (views >= 0)
+                        {
+                            if (UserFilters.ContainsKey(chatId.ToString()))
+                                UserFilters[chatId.ToString()].ViewsYT = views;
+                            else UserFilters.Add(chatId.ToString(), new UserFilter(chatId, views, likes));
+                            await UpdateUserFilters();
+                            await Bot.SendTextMessageAsync(
+                                chatId: chatId,
+                                text: (views > 0)
+                                    ? CurrentTextPack.PromptSettingYTViews_Done+$" ({views})"
+                                    : CurrentTextPack.PromptSettingYTViews_Disabled);
+                            await SendYTFilterOptions(message);
+                            await ChangeBotStage(chatId, BotStage.ChoosingYTFilters);
+                        }
+                        else await Bot.SendTextMessageAsync(
+                            chatId: chatId,
+                            text: CurrentTextPack.PromptSettingYTFilter_Error
+                        );
+                        break;
+                    }
+                case BotStage.SearchingYTVideo:
+                    {
+                        var RequestReplyKeyboard = new ReplyKeyboardMarkup(new[]
+                        {
+                                new KeyboardButton[]{ CurrentTextPack.BtnBackToStart },
+                                new KeyboardButton[]
+                                {
+                                    CurrentTextPack.BtnSearchingYTVideo_Previous5,
+                                    CurrentTextPack.BtnSearchingYTVideo_Next5
+                                },
+                                new KeyboardButton[]{ CurrentTextPack.BtnChoosingYTFunction_Search }
+                            });
+                        await Bot.SendTextMessageAsync(
+                            chatId: message.Chat.Id,
+                            text: CurrentTextPack.PromptSearchingYTVideo_Done,
+                            replyMarkup: RequestReplyKeyboard
+                        );
+
+                        YTSearchQuery = (CanChangeQuery) ? message.Text : YTSearchQuery;
+                        CanChangeQuery = false;
+                        await SearchYTVideo(message, YTSearchQuery, YTVideoPage);
+                        await ChangeBotStage(chatId, BotStage.ChoosingYTVideos);
+                        break;
+                    }
+                case BotStage.ChoosingYTVideos:
+                    {
+                        if (message.Text == CurrentTextPack.BtnSearchingYTVideo_Previous5)
+                        {
+                            YTVideoPage = (YTVideoPage > 0) ? YTVideoPage - 1 : 0;
+                            await SearchYTVideo(message, YTSearchQuery, YTVideoPage);
+                            await ChangeBotStage(chatId, BotStage.ChoosingYTVideos);
+                        }
+                        else
+                        if (message.Text == CurrentTextPack.BtnSearchingYTVideo_Next5)
+                        {
+                            ++YTVideoPage;
+                            await SearchYTVideo(message, YTSearchQuery, YTVideoPage);
+                            await ChangeBotStage(chatId, BotStage.ChoosingYTVideos);
+                        }
+                        else
+                        if (message.Text == CurrentTextPack.BtnChoosingYTFunction_Search)
+                        {
+                            await SendSearchYTVideoOptions(message);
+                            await ChangeBotStage(chatId, BotStage.SearchingYTVideo);
+                        }
+
+                        await ChangeBotStage(chatId, BotStage.SearchingYTVideo);
+                        break;
+                    }
+                case BotStage.SearchingYTChannel:
+                    {
+                        //делать дело, а потом
+                        await ChoosePlatformAction(message);
+                        await ChangeBotStage(chatId, BotStage.ChoosingPlatform);
+                        break;
+                    }
+                default:
+                    //await ChoosePlatformAction(message);
+                    //await ChangeBotStage(chatId, BotStage.ChoosingPlatform);
+
+                    break;
+            }
+
+            if (message.Text == CurrentTextPack.BtnBackToStart)
+            {   //В начало
+                await ChoosePlatformAction(message);
+                await ChangeBotStage(chatId, BotStage.ChoosingPlatform);
+                CurrentBotStage = BotStages[chatId];
+            }
+            else if (message.Text == CurrentTextPack.CommandStart)
+            {   //-/start - выбор языка
+                await ChooseLanguageAction(message);
+                await ChangeBotStage(chatId, BotStage.ChoosingLanguage);
+                CurrentBotStage = BotStages[chatId];
+            }
+            else if (message.Text == CurrentTextPack.CommandHelp)
+            {   //-/help
+                await Bot.SendTextMessageAsync(
+                    chatId: chatId,
+                    text: CurrentTextPack.PromptGreetings
+                );
+                await Bot.SendTextMessageAsync(
+                    chatId: chatId,
+                    text: CurrentTextPack.PromptHelp
+                );
+            }
+
+            else
+            {
+                //await Bot.SendTextMessageAsync(
+                //    chatId: chatId,
+                //    text: CurrentTextPack.PromptInvalidCommandResponse
+                //);
+            }
+
+            async Task ChooseLanguageAction(Message msg)
+            {
+                KeyboardButton[] keyboardButtons = new KeyboardButton[UsedTextPacks.Length];
+                for (int i = 0; i < UsedTextPacks.Length; i++)
+                {
+                    keyboardButtons[i] = new KeyboardButton(UsedTextPacks[i].Name);
+                }
+                var RequestReplyKeyboard = new ReplyKeyboardMarkup(keyboardButtons);
+
+                await Bot.SendTextMessageAsync(
+                    chatId: chatId,
+                    text: CurrentTextPack.PromptChoosingLanguage,
+                    replyMarkup: RequestReplyKeyboard
+                );
+                await UpdateUserFilters();
+            }
+            async Task SendYoutubeOptions(Message msg)
+            {
+                var RequestReplyKeyboard = new ReplyKeyboardMarkup(new[]
+                {
+                    new KeyboardButton[]{ CurrentTextPack.BtnBackToStart },
+                    new KeyboardButton[]{CurrentTextPack.BtnChoosingYTFunction_Filters,
+                        CurrentTextPack.BtnChoosingYTFunction_Search },
+                    new KeyboardButton[]{ CurrentTextPack.BtnChoosingYTFunction_ChannelSearch }
+                });
+                await Bot.SendTextMessageAsync(
+                    chatId: msg.Chat.Id,
+                    text: CurrentTextPack.PromptChoosingYTFunction,
+                    replyMarkup: RequestReplyKeyboard
+                );
+            }
+
+            async Task SendYTFilterOptions(Message msg)
+            {
+                var RequestReplyKeyboard = new ReplyKeyboardMarkup(new[]
+                {
+                    new KeyboardButton[]{ CurrentTextPack.BtnBackToStart},
+                    new KeyboardButton[]{ CurrentTextPack.BtnSettingYTViews,
+                        CurrentTextPack.BtnSettingYTLikes}
+                });
+                await Bot.SendTextMessageAsync(
+                    chatId: msg.Chat.Id,
+                    text: CurrentTextPack.PromptChoosingYTFilters + 
+                          CurrentTextPack.PromptCurrentFilters(UserFilters[chatId.ToString()].ViewsYT,
+                              UserFilters[chatId.ToString()].LikesYT),
+                    replyMarkup: RequestReplyKeyboard
+                );
+            }
+            async Task SendSearchYTVideoOptions(Message msg)
+            {
+                CanChangeQuery = true;
+                await Bot.SendTextMessageAsync(
+                    chatId: msg.Chat.Id,
+                    text: CurrentTextPack.PromptSearchingYTVideo,
+                    replyMarkup: new ReplyKeyboardRemove()
+                );
+            }
+            async Task SendSearchYTChannelOptions(Message msg)
+            {
+                await Bot.SendTextMessageAsync(
+                    chatId: msg.Chat.Id,
+                    text: CurrentTextPack.PromptSearchingYTChannel,
+                    replyMarkup: new ReplyKeyboardRemove()
+                );
+            }
+            async Task SendInstagramOptions(Message msg)
+            {
+                await Bot.SendChatActionAsync(chatId, ChatAction.UploadPhoto);
+                try
+                {
+                    await Bot.SendPhotoAsync(
+                           chatId: chatId,
+                           photo: new InputOnlineFile(new Uri("https://i.ytimg.com/vi/U5YssW0z9rY/hqdefault.jpg")),
+                           caption: "Здесь что-то будет"
+                       );
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                }
+            }
+
+            async Task ChoosePlatformAction(Message msg)
+            {
+                CanChangeQuery = true;
+                var RequestReplyKeyboard = new ReplyKeyboardMarkup(new[]
+                {
+                    new KeyboardButton[]{CurrentTextPack.BtnChoosingPlatform_YT,
+                        CurrentTextPack.BtnChoosingPlatform_Insta}
+                });
+                await Bot.SendTextMessageAsync(
+                    chatId: msg.Chat.Id,
+                    text: CurrentTextPack.PromptChoosingPlatform,
+                    replyMarkup: RequestReplyKeyboard
+                );
+            }
+
+            async Task DefaultResponse(Message msg)
+            {
+                string usage = CurrentTextPack.PromptInvalidCommandResponse;
+                await Bot.SendTextMessageAsync(
+                    chatId: msg.Chat.Id,
+                    text: usage,
+                    replyMarkup: new ReplyKeyboardRemove()
+                );
+                await ChoosePlatformAction(msg);
+            }
         }
 
         private static async Task SearchYTVideo(Message message, string query, int ytVideoPage)
