@@ -26,7 +26,7 @@ namespace TextConstPack
         public string PromptCurrentFiltersTemplate;
         public string PromptCurrentFilters(long views, long likes)
         {
-            return string.Format(PromptCurrentFiltersTemplate,views, likes);
+            return string.Format(PromptCurrentFiltersTemplate, views, likes);
         }
 
         public string BtnSettingYTViews { get; set; }
@@ -47,9 +47,13 @@ namespace TextConstPack
         public string PromptSearchingYTVideo_Failure { get; set; }
 
         public string PromptSearchingYTChannel { get; set; }
+        public string PromptSearchingYTChannel_Done { get; set; }
+        public string PromptSearchingYTChannel_Failure { get; set; }
         public string PromptInvalidCommandResponse { get; set; }
         public string PromptHelp { get; set; }
         public string PromptInfo { get; set; }
+        public string BtnNextChannel { get; set; }
+        public string BtnChooseYTChannel { get; set; }
     }
 
     public static class TextPackData
@@ -64,7 +68,7 @@ namespace TextConstPack
                 BtnBackToStart = "Back to Start",
                 PromptChoosingPlatform = "First, choose a platform you are interested in",
                 BtnChoosingPlatform_YT = "YouTube",
-                
+
                 BtnChoosingPlatform_Insta = "Instagram",
                 BtnChoosingYTFunction_Filters = "YT Filters",
                 BtnChoosingYTFunction_Search = "YT Search",
@@ -108,7 +112,11 @@ namespace TextConstPack
                     "\"YT Channel Search\" button on a keyboard.\n" +
                     "- Searching YouTube videos by text query. For that, after choosing the platform press the "+
                                  "\"YT Search\" button on a keyboard.\n"+
-                    "To go back to Choosing Platform press the \"Back to Start\" button на клавиатуре"
+                    "To go back to Choosing Platform press the \"Back to Start\" button на клавиатуре",
+                        BtnNextChannel = "Next Channel",
+                BtnChooseYTChannel = "Choose Channel",
+                PromptSearchingYTChannel_Done = "Found Channel:",
+                PromptSearchingYTChannel_Failure = "Channels not found"
     },
             new TextPack()
             {
@@ -166,14 +174,18 @@ namespace TextConstPack
                     "\"Поиск по каналу YT\" на клавиатуре.\n" +
                     "- Выполнять поиск видео на YouTube по запросу. Для этого выбери ресурс и нажми кнопку " +
                              "\"Поиск YT\" на клавиатуре.\n"+
-                    "Для возврата к выбору платформы нажми кнопку \"В начало\" на клавиатуре"
+                    "Для возврата к выбору платформы нажми кнопку \"В начало\" на клавиатуре",
+                BtnNextChannel = "Следующий канал",
+                BtnChooseYTChannel = "Выбрать канал",
+                PromptSearchingYTChannel_Done = "Найден канал:",
+                PromptSearchingYTChannel_Failure = "Канал по вашему запросу не найден"
             }
 };
-        
-        
+
+
     }
 
-    
+
     //public class TextPack/*English : TextPack*/
     //{
     //    public const string PromptGreetings = "Hi, I can show you YouTube videos and Instagram posts " +

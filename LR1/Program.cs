@@ -45,7 +45,9 @@ namespace TelegramBot
         private static int YTChannelPage = 0;
         private static int YTChannelVideoPage = 0;
         private static string YTSearchQuery = "";
+        private static string YTSearchChannelQuery = "";
         private static bool CanChangeQuery;
+        private static bool CanChangeChannelQuery;
 
         public static BotStage CurrentBotStage;
         public enum BotStage
@@ -200,7 +202,7 @@ namespace TelegramBot
                             await SendSearchYTChannelOptions(message);
                             await ChangeBotStage(chatId, BotStage.SearchingYTChannel);
                             CurrentBotStage = BotStages[chatId];
-                        }                        
+                        }
                         break;
                     }
 
@@ -211,7 +213,8 @@ namespace TelegramBot
                             await SendYoutubeOptions(message);
                             await ChangeBotStage(chatId, BotStage.ChoosingYTFunction);
                             CurrentBotStage = BotStages[chatId];
-                        } else
+                        }
+                        else
                         if (message.Text == CurrentTextPack.BtnSettingYTViews)
                         {
                             await Bot.SendTextMessageAsync(
@@ -220,7 +223,8 @@ namespace TelegramBot
                                 replyMarkup: new ReplyKeyboardRemove()
                             );
                             await ChangeBotStage(chatId, BotStage.SettingYTViews);
-                        } else 
+                        }
+                        else
                         if (message.Text == CurrentTextPack.BtnSettingYTLikes)
                         {
                             await Bot.SendTextMessageAsync(
@@ -277,7 +281,7 @@ namespace TelegramBot
                             Console.WriteLine(e);
                             throw;
                         }
-                        
+
                         break;
                     }
                 case BotStage.SettingYTViews:
@@ -326,7 +330,7 @@ namespace TelegramBot
                             Console.WriteLine(e);
                             throw;
                         }
-                        
+
                         break;
                     }
                 case BotStage.SearchingYTVideo:
@@ -352,13 +356,6 @@ namespace TelegramBot
                     }
                 case BotStage.ChoosingYTVideos:
                     {
-                        //if (message.Text == CurrentTextPack.BtnSearchingYTVideo_Previous5)
-                        //{
-                        //    YTVideoPage = (YTVideoPage > 0) ? YTVideoPage - 1 : 0;
-                        //    await SearchYTVideo(message, YTSearchQuery, YTVideoPage);
-                        //    await ChangeBotStage(chatId, BotStage.ChoosingYTVideos);
-                        //}
-                        //else
                         if (message.Text == CurrentTextPack.BtnSearchingYTVideo_Next5)
                         {
                             ++YTVideoPage;
@@ -377,9 +374,41 @@ namespace TelegramBot
                     }
                 case BotStage.SearchingYTChannel:
                     {
-                        //делать дело, а потом
-                        await ChoosePlatformAction(message);
-                        await ChangeBotStage(chatId, BotStage.ChoosingPlatform);
+                        await SendSearchYTChannelOptions(message);
+                        var RequestReplyKeyboard = new ReplyKeyboardMarkup(new[]
+                        {
+                            new KeyboardButton[]{ CurrentTextPack.BtnBackToStart },
+                            new KeyboardButton[]{CurrentTextPack.BtnNextChannel,
+                                CurrentTextPack.BtnChooseYTChannel }
+                        });
+                        await Bot.SendTextMessageAsync(
+                            chatId: message.Chat.Id,
+                            text: CurrentTextPack.PromptSearchingYTChannel_Done,
+                            replyMarkup: RequestReplyKeyboard
+                        );
+                        YTSearchChannelQuery = (CanChangeChannelQuery) ? message.Text : YTSearchChannelQuery;
+                        CanChangeChannelQuery = false;
+                        await SearchYTChannel(message,YTSearchChannelQuery);
+                        await ChangeBotStage(chatId, BotStage.ChoosingYTChannels);
+                        break;
+                    }
+                case BotStage.ChoosingYTChannels:
+                    {
+                        if (message.Text == CurrentTextPack.BtnNextChannel)
+                        {
+                            ++YTChannelPage;
+                            await SearchYTChannel(message,YTSearchChannelQuery);
+                            await ChangeBotStage(chatId, BotStage.ChoosingYTChannels);
+                        }
+                        else
+                        if (message.Text == CurrentTextPack.BtnChooseYTChannel)
+                        {
+                            UserFilters[chatId.ToString()].ChosenChannelId = YoutubeAPISearch.Search.channelId.Last();
+                            await UpdateUserFilters();
+                            await SendSearchYTVideoOptions(message);
+                            await ChangeBotStage(chatId, BotStage.SearchingYTChannel);
+                        }
+                        await ChangeBotStage(chatId, BotStage.ChoosingYTChannels);
                         break;
                     }
                 default:
@@ -470,7 +499,7 @@ namespace TelegramBot
                 });
                 await Bot.SendTextMessageAsync(
                     chatId: msg.Chat.Id,
-                    text: CurrentTextPack.PromptChoosingYTFilters + 
+                    text: CurrentTextPack.PromptChoosingYTFilters +
                           CurrentTextPack.PromptCurrentFilters(UserFilters[chatId.ToString()].ViewsYT,
                               UserFilters[chatId.ToString()].LikesYT),
                     replyMarkup: RequestReplyKeyboard
@@ -487,6 +516,7 @@ namespace TelegramBot
             }
             async Task SendSearchYTChannelOptions(Message msg)
             {
+                CanChangeChannelQuery = true;
                 await Bot.SendTextMessageAsync(
                     chatId: msg.Chat.Id,
                     text: CurrentTextPack.PromptSearchingYTChannel,
@@ -537,12 +567,32 @@ namespace TelegramBot
             }
         }
 
+        private static async Task SearchYTChannel(Message msg, string query)
+        {
+            if (await YoutubeAPISearch.Search.SearchChannel(query, YTChannelPage))
+            {
+                await Bot.SendTextMessageAsync(
+                    chatId: msg.Chat.Id,
+                    text: CurrentTextPack.PromptSearchingYTChannel_Done
+                );
+                await Bot.SendTextMessageAsync(
+                    chatId: msg.Chat.Id,
+                    text: YoutubeAPISearch.Search.channel.Last()
+                );
+            }
+            else await Bot.SendTextMessageAsync(
+                chatId: msg.Chat.Id,
+                text: CurrentTextPack.PromptSearchingYTChannel_Failure
+            );
+
+        }
+
         private static async Task SearchYTVideo(Message message, string query, int ytVideoPage)
         {
             await YoutubeAPISearch.Search.SearchVideo(query, ytVideoPage,
-                UserFilters[message.Chat.Id.ToString()].LikesYT,
-                UserFilters[message.Chat.Id.ToString()].ViewsYT);
-            foreach (string video in YoutubeAPISearch.Search.videos)
+                UserFilters[message.Chat.Id.ToString()].ViewsYT,
+                UserFilters[message.Chat.Id.ToString()].LikesYT);
+            foreach (string video in YoutubeAPISearch.Search.videos.Last())
             {
                 await Bot.SendTextMessageAsync(
                     chatId: message.Chat.Id,

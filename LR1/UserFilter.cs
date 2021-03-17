@@ -15,6 +15,7 @@ namespace TelegramBot
         public long LikesInsta { get; set; }
 
         public string UserLanguage {get;set;}
+        public string ChosenChannelId { get; set; }
         
         public UserFilter(long userId, long viewsYt, long likesYt)
         {
