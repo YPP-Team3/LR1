@@ -47,7 +47,7 @@ namespace TelegramBot
         private static string YTSearchQuery = "";
         private static string YTSearchChannelQuery = "";
         private static bool CanChangeQuery;
-        private static bool CanChangeChannelQuery;
+        private static bool CanChangeChannelQuery = true;
 
         public static BotStage CurrentBotStage;
         public enum BotStage
@@ -134,7 +134,7 @@ namespace TelegramBot
 
             if (UserFilters[chatId.ToString()].UserLanguage == "Undefined")
             {
-                await ChooseLanguageAction(message);
+                UserFilters[chatId.ToString()].UserLanguage = "English";
                 await ChangeBotStage(chatId, BotStage.ChoosingLanguage);
             }
             else
@@ -142,6 +142,7 @@ namespace TelegramBot
                 CurrentTextPack =
                     UsedTextPacks.First(x => x.Name == UserFilters[chatId.ToString()].UserLanguage);
             }
+
             switch (BotStages[message.Chat.Id])
             {
                 case BotStage.ChoosingLanguage:
@@ -374,41 +375,92 @@ namespace TelegramBot
                     }
                 case BotStage.SearchingYTChannel:
                     {
-                        await SendSearchYTChannelOptions(message);
+                        //await SendSearchYTChannelOptions(message);
                         var RequestReplyKeyboard = new ReplyKeyboardMarkup(new[]
                         {
                             new KeyboardButton[]{ CurrentTextPack.BtnBackToStart },
                             new KeyboardButton[]{CurrentTextPack.BtnNextChannel,
                                 CurrentTextPack.BtnChooseYTChannel }
                         });
-                        await Bot.SendTextMessageAsync(
-                            chatId: message.Chat.Id,
-                            text: CurrentTextPack.PromptSearchingYTChannel_Done,
-                            replyMarkup: RequestReplyKeyboard
-                        );
+                        //await Bot.SendTextMessageAsync(
+                        //    chatId: message.Chat.Id,
+                        //    text: CurrentTextPack.PromptSearchingYTChannel_Done,
+                        //    replyMarkup: RequestReplyKeyboard
+                        //);
                         YTSearchChannelQuery = (CanChangeChannelQuery) ? message.Text : YTSearchChannelQuery;
-                        CanChangeChannelQuery = false;
-                        await SearchYTChannel(message,YTSearchChannelQuery);
+                        //CanChangeChannelQuery = false;
+                        await SearchYTChannel(message, YTSearchChannelQuery);
                         await ChangeBotStage(chatId, BotStage.ChoosingYTChannels);
                         break;
                     }
                 case BotStage.ChoosingYTChannels:
                     {
+                        YTChannelVideoPage = 0;
                         if (message.Text == CurrentTextPack.BtnNextChannel)
                         {
                             ++YTChannelPage;
-                            await SearchYTChannel(message,YTSearchChannelQuery);
+                            await SearchYTChannel(message, YTSearchChannelQuery);
                             await ChangeBotStage(chatId, BotStage.ChoosingYTChannels);
                         }
                         else
                         if (message.Text == CurrentTextPack.BtnChooseYTChannel)
                         {
+                            YTChannelPage = 0;
                             UserFilters[chatId.ToString()].ChosenChannelId = YoutubeAPISearch.Search.channelId.Last();
                             await UpdateUserFilters();
-                            await SendSearchYTVideoOptions(message);
+                            await SendSearchYTChannelVideosOptions(message);
+                            await YoutubeAPISearch.Search.GetVideosFromChannelAsync(
+                                UserFilters[message.Chat.Id.ToString()].ChosenChannelId, YTChannelVideoPage,
+                                UserFilters[message.Chat.Id.ToString()].ViewsYT,
+                                UserFilters[message.Chat.Id.ToString()].LikesYT);
+                            if (YoutubeAPISearch.Search.LastVideosFromChannel.Count > 0)
+                                foreach (var video in YoutubeAPISearch.Search.LastVideosFromChannel)
+                                {
+                                    await Bot.SendTextMessageAsync(
+                                        chatId: message.Chat.Id,
+                                        text: video
+                                    );
+                                }
+                            else
+                                await Bot.SendTextMessageAsync(
+                                    chatId: message.Chat.Id,
+                                    text: CurrentTextPack.PromptSearchingYTVideo_Failure);
+
+                            await ChangeBotStage(chatId, BotStage.ChoosingYTChannelVideos);
+                        }
+                        //await ChangeBotStage(chatId, BotStage.ChoosingYTChannels);
+                        break;
+                    }
+                case BotStage.ChoosingYTChannelVideos:
+                    {
+                        if (message.Text == CurrentTextPack.BtnSearchingYTVideo_Next5)
+                        {
+                            ++YTChannelVideoPage;
+                            await YoutubeAPISearch.Search.GetVideosFromChannelAsync(
+                                UserFilters[message.Chat.Id.ToString()].ChosenChannelId, YTChannelVideoPage,
+                                UserFilters[message.Chat.Id.ToString()].ViewsYT,
+                                UserFilters[message.Chat.Id.ToString()].LikesYT);
+                            if (YoutubeAPISearch.Search.LastVideosFromChannel.Count > 0)
+                                foreach (var video in YoutubeAPISearch.Search.LastVideosFromChannel)
+                                {
+                                    await Bot.SendTextMessageAsync(
+                                        chatId: message.Chat.Id,
+                                        text: video
+                                    );
+                                }
+                            else
+                                await Bot.SendTextMessageAsync(
+                                    chatId: message.Chat.Id,
+                                    text: CurrentTextPack.PromptSearchingYTVideo_Failure);
+
+                           await ChangeBotStage(chatId, BotStage.ChoosingYTChannelVideos);
+                        }
+                        else
+                        if (message.Text == CurrentTextPack.BtnChoosingYTFunction_ChannelSearch)
+                        {
+                            await SendSearchYTChannelOptions(message);
                             await ChangeBotStage(chatId, BotStage.SearchingYTChannel);
                         }
-                        await ChangeBotStage(chatId, BotStage.ChoosingYTChannels);
                         break;
                     }
                 default:
@@ -523,6 +575,20 @@ namespace TelegramBot
                     replyMarkup: new ReplyKeyboardRemove()
                 );
             }
+            async Task SendSearchYTChannelVideosOptions(Message msg)
+            {
+                var RequestReplyKeyboard = new ReplyKeyboardMarkup(new[]
+                {
+                    new KeyboardButton[]{ CurrentTextPack.BtnBackToStart},
+                    new KeyboardButton[]{ CurrentTextPack.BtnSearchingYTVideo_Next5},
+                    new KeyboardButton[]{ CurrentTextPack.BtnChoosingYTFunction_ChannelSearch}
+                });
+                await Bot.SendTextMessageAsync(
+                    chatId: msg.Chat.Id,
+                    text: CurrentTextPack.PromptChannelVideos,
+                    replyMarkup: RequestReplyKeyboard
+                );
+            }
             async Task SendInstagramOptions(Message msg)
             {
                 await Bot.SendChatActionAsync(chatId, ChatAction.UploadPhoto);
@@ -571,9 +637,16 @@ namespace TelegramBot
         {
             if (await YoutubeAPISearch.Search.SearchChannel(query, YTChannelPage))
             {
+                var RequestReplyKeyboard = new ReplyKeyboardMarkup(new[]
+                {
+                    new KeyboardButton[]{ CurrentTextPack.BtnBackToStart },
+                    new KeyboardButton[]{CurrentTextPack.BtnNextChannel,
+                        CurrentTextPack.BtnChooseYTChannel }
+                });
                 await Bot.SendTextMessageAsync(
                     chatId: msg.Chat.Id,
-                    text: CurrentTextPack.PromptSearchingYTChannel_Done
+                    text: CurrentTextPack.PromptSearchingYTChannel_Done,
+                    replyMarkup: RequestReplyKeyboard
                 );
                 await Bot.SendTextMessageAsync(
                     chatId: msg.Chat.Id,
@@ -589,7 +662,8 @@ namespace TelegramBot
 
         private static async Task SearchYTVideo(Message message, string query, int ytVideoPage)
         {
-            await YoutubeAPISearch.Search.SearchVideo(query, ytVideoPage,
+            bool hasFound = false;
+            hasFound = await YoutubeAPISearch.Search.SearchVideo(query, ytVideoPage,
                 UserFilters[message.Chat.Id.ToString()].ViewsYT,
                 UserFilters[message.Chat.Id.ToString()].LikesYT);
             foreach (string video in YoutubeAPISearch.Search.videos.Last())
@@ -599,7 +673,7 @@ namespace TelegramBot
                     text: video /*Regex.Match(video, @"[\w\W]+\(([\w\W]+)\)").Value*/
                 );
             }
-            if (YoutubeAPISearch.Search.videos.Count == 0)
+            if (YoutubeAPISearch.Search.videos.Count == 0 || !hasFound)
                 await Bot.SendTextMessageAsync(
                     chatId: message.Chat.Id,
                     text: CurrentTextPack.PromptSearchingYTVideo_Failure

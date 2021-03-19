@@ -23,7 +23,7 @@ namespace TelegramBot
             ViewsYT = viewsYt;
             LikesYT = likesYt;
             LikesInsta = 0;
-            UserLanguage = "Undefined";
+            UserLanguage = "English";
         }
         public UserFilter(long userId, long likesInsta)
         {
@@ -32,12 +32,12 @@ namespace TelegramBot
             LikesInsta = likesInsta;
             ViewsYT = LikesYT = 0;
 
-            UserLanguage = "Undefined";
+            UserLanguage = "English";
         }
 
         public UserFilter()
         {
-            UserLanguage = "Undefined";
+            UserLanguage = "English";
         }
         public UserFilter(long userId)
         {

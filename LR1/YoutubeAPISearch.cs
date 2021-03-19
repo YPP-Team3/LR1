@@ -108,12 +108,13 @@ namespace YoutubeAPISearch
             Console.ReadKey();
         }*/
 
-        public static async Task SearchVideo(string qwery, int n,long viewCount, long likeCount)// поиск видео по запросу (результат в листе videos)
+        public static async Task<bool> SearchVideo(string qwery, int n,long viewCount, long likeCount)// поиск видео по запросу (результат в листе videos)
         {
             if (n == 0)
             {
                 nextPageToken = " ";
             }
+            bool success = false;
             videos.Add(new List<String>());
             searchListRequest.Q = qwery;
             searchListRequest.MaxResults = 5;
@@ -121,23 +122,37 @@ namespace YoutubeAPISearch
             //searchListRequest.PageToken = nextPageToken;
             searchListRequest.Type = "video";
             SearchListResponse searchListResponse;
-            while (videos[videos.Count-1].Count <5)
+            int maxRequests = 30;
+            int i = 0;
+            try
             {
-                searchListRequest.PageToken = nextPageToken;
-                searchListResponse = await searchListRequest.ExecuteAsync();
-                foreach (var searchResult in searchListResponse.Items)
+                while (videos[videos.Count-1].Count <5 && i<maxRequests)
                 {
-                    if (searchResult.Snippet.PublishedAt >= date)
+                    searchListRequest.PageToken = nextPageToken;
+                    searchListResponse = await searchListRequest.ExecuteAsync();
+                    foreach (var searchResult in searchListResponse.Items)
                     {
-                        int l, v = GetViewAndLikeCount(jsonQwery, searchResult.Id.VideoId, out l);
-                        if (viewCount <= v && likeCount <= l && (!videos[videos.Count-1].Contains(String.Format
+                        if (searchResult.Snippet.PublishedAt >= date)
+                        {
+                            int l, v = GetViewAndLikeCount(jsonQwery, searchResult.Id.VideoId, out l);
+                            if (viewCount <= v && likeCount <= l && (!videos[videos.Count-1].Contains(String.Format
                                 ("({1}), views = {2}, likes = {3} ", searchResult.Snippet.Title, 
-                                "https://www.youtube.com/watch?v=" + searchResult.Id.VideoId, v, l))))
-                            videos[videos.Count - 1].Add(String.Format("({1}), views = {2}, likes = {3} ", searchResult.Snippet.Title, "https://www.youtube.com/watch?v=" + searchResult.Id.VideoId, v, l));
+                                    "https://www.youtube.com/watch?v=" + searchResult.Id.VideoId, v, l))))
+                                videos[videos.Count - 1].Add(String.Format("({1}), views = {2}, likes = {3} ", searchResult.Snippet.Title, "https://www.youtube.com/watch?v=" + searchResult.Id.VideoId, v, l));
+                        }
                     }
+                    nextPageToken = searchListResponse.NextPageToken;
+                    i++;
+                    success = (i == maxRequests - 1) ? false : true;
                 }
-                nextPageToken = searchListResponse.NextPageToken;
             }
+            catch (Exception e)
+            {
+                success = false;
+                return success;
+                System.Console.WriteLine(e);
+            }
+            return success;
         }
         public static async Task<bool> SearchChannel(string qwery, int n)// поиск каналов по запросу (результат в листе channels, список id каналов для функции GetVideosFromChannelAsync находится в листе channelId)
         {
@@ -180,7 +195,7 @@ namespace YoutubeAPISearch
                 {
                     int l, v = GetViewAndLikeCount(jsonQwery, searchResult.Id.VideoId, out l);
                     if (views <= v && likes <= l)
-                        LastVideosFromChannel.Add(String.Format("{0} - {1}, views = {2}, likes = {3}", searchResult.Snippet.Title, "https://www.youtube.com/watch?v=" + searchResult.Id.VideoId, v, l));
+                        LastVideosFromChannel.Add(String.Format("{1}, views = {2}, likes = {3}", searchResult.Snippet.Title, "https://www.youtube.com/watch?v=" + searchResult.Id.VideoId, v, l));
                 }
             }
             nextPageTokenChannelVideo = searchListResponse.NextPageToken;

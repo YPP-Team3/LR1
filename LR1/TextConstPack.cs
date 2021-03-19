@@ -54,6 +54,7 @@ namespace TextConstPack
         public string PromptInfo { get; set; }
         public string BtnNextChannel { get; set; }
         public string BtnChooseYTChannel { get; set; }
+        public string PromptChannelVideos { get; set; }
     }
 
     public static class TextPackData
@@ -116,7 +117,8 @@ namespace TextConstPack
                         BtnNextChannel = "Next Channel",
                 BtnChooseYTChannel = "Choose Channel",
                 PromptSearchingYTChannel_Done = "Found Channel:",
-                PromptSearchingYTChannel_Failure = "Channels not found"
+                PromptSearchingYTChannel_Failure = "Channels not found",
+                PromptChannelVideos = "Channel videos:"
     },
             new TextPack()
             {
@@ -178,7 +180,8 @@ namespace TextConstPack
                 BtnNextChannel = "Следующий канал",
                 BtnChooseYTChannel = "Выбрать канал",
                 PromptSearchingYTChannel_Done = "Найден канал:",
-                PromptSearchingYTChannel_Failure = "Канал по вашему запросу не найден"
+                PromptSearchingYTChannel_Failure = "Канал по вашему запросу не найден",
+                    PromptChannelVideos = "Видео с канала:"
             }
 };
 
