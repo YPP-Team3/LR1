@@ -19,10 +19,17 @@ using Telegram.Bot.Types.ReplyMarkups;
 using File = System.IO.File;
 using YoutubeAPISearch;
 using TextConstPack;
-using LanguagesEnum;
 
 namespace TelegramBot
 {
+	public enum BotStage
+	{
+		ChoosingLanguage,
+		ChoosingPlatform, ChoosingYTFunction, ChoosingYTFilters,
+		SettingYTLikes, SettingYTViews,
+		SearchingYTChannel, SearchingYTVideo,
+		ChoosingYTVideos, ChoosingYTChannels, ChoosingYTChannelVideos
+	}
 
     class Program
     {
@@ -50,14 +57,6 @@ namespace TelegramBot
         private static bool CanChangeChannelQuery = true;
 
         public static BotStage CurrentBotStage;
-        public enum BotStage
-        {
-            ChoosingLanguage,
-            ChoosingPlatform, ChoosingYTFunction, ChoosingYTFilters,
-            SettingYTLikes, SettingYTViews,
-            SearchingYTChannel, SearchingYTVideo,
-            ChoosingYTVideos, ChoosingYTChannels, ChoosingYTChannelVideos
-        }
 
         private static async Task ChangeBotStage(long chatId, BotStage nextBotStage)
         {

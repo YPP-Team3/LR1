@@ -217,7 +217,6 @@
     <Compile Include="UserFilter.cs" />
     <Compile Include="YoutubeAPISearch.cs" />
     <Compile Include="TextConstPack.cs" />
-    <Compile Include="LanguagesEnum.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include=".git\ms-persist.xml" />

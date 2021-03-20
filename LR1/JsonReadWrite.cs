@@ -9,7 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Telegram.Bot.Types;
 using File = System.IO.File;
-using static TelegramBot.Program.BotStage;
+using static TelegramBot.BotStage;
 
 namespace TelegramBot
 {
@@ -65,21 +65,21 @@ namespace TelegramBot
             }
             return userFilters;
         }
-        public static async Task<Dictionary<long, Program.BotStage>> ReadBotStagesJsonAsync(string fileName)
+        public static async Task<Dictionary<long, BotStage>> ReadBotStagesJsonAsync(string fileName)
         {
-            Dictionary<long, Program.BotStage> BotStages = new Dictionary<long, Program.BotStage>();
+            Dictionary<long, BotStage> BotStages = new Dictionary<long, BotStage>();
             for (int i = 1; i <= NumberOfRetries; ++i)
             {
                 try
                 {
                     using (FileStream fileStream = File.OpenRead(fileName))
-                        if (!JsonSerializer.DeserializeAsync<Dictionary<long, Program.BotStage>>(fileStream)
+                        if (!JsonSerializer.DeserializeAsync<Dictionary<long, BotStage>>(fileStream)
                             .IsCompletedSuccessfully)
                             break;
                         else
                         {
                             BotStages = await JsonSerializer.
-                          DeserializeAsync<Dictionary<long, Program.BotStage>>(fileStream);
+                          DeserializeAsync<Dictionary<long, BotStage>>(fileStream);
                         }
                     break;
                 }
